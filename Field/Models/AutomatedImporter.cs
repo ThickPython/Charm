@@ -43,6 +43,39 @@ public class AutomatedImporter
         File.WriteAllText($"{saveDirectory}/{meshName}_import_to_ue5.py", textExtensions);
     }
 
+    public static void SaveInteropUnityFile(string saveDirectory, string unityDirectory, string meshName, EImportType importType, ETextureFormat textureFormat, bool bSingleFolder = true)
+    {
+        //Copy and rename file and class (lul unity no script support)
+        File.Copy("../../../../../Field/UnityImportThings/charm_to_unity.txt", $"{unityDirectory}/{meshName}_charm_to_unity.cs", true);
+
+        //Change class name
+        string text = File.ReadAllText($"{unityDirectory}/{meshName}_charm_to_unity.cs");
+        text = text.Replace("CharmToUnityWindow", $"CharmToUnityWindow_{meshName}");
+
+        text = text.Replace("replaceTextureTypeExtentionPleaseThanks", ".dds");
+        switch (textureFormat)
+        {
+            case ETextureFormat.PNG:
+                text = text.Replace(".dds", ".png");
+                break;
+            case ETextureFormat.TGA:
+                text = text.Replace(".dds", ".tga");
+                break;
+            
+        }
+
+        text = text.Replace("replacePathToUCAbsolute", unityDirectory);
+
+        //set path to charm contents (unlike the py script, this has to be in the unity contents folder)
+        text = text.Replace("replacePathToCharmContentsPleaseThanks", saveDirectory.Replace('\\', '/'));
+        File.WriteAllText($"{unityDirectory}/{meshName}_charm_to_unity.cs", text);
+
+        //Copy over the default hlsl and default shadergraph
+        File.Copy("../../../../../Field/UnityImportThings/C2Utemplate.shadergraph", $"{unityDirectory}/C2Utemplate.shadergraph", true);
+        File.Copy("../../../../../Field/UnityImportThings/DefaultHLSL.hlsl", $"{unityDirectory}/DefaultHLSL.hlsl", true);
+
+    }
+
     public static void SaveInteropBlenderPythonFile(string saveDirectory, string meshName, EImportType importType, ETextureFormat textureFormat, bool bSingleFolder = true)
     {
         // Copy and rename file

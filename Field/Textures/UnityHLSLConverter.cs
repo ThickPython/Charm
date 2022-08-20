@@ -6,61 +6,30 @@ using Field.Models;
 
 namespace Field.Textures;
 
-public struct Texture
-{
-    public string Dimension;
-    public string Type;
-    public string Variable;
-    public int Index;
-}
 
-public struct Cbuffer
-{
-    public string Variable;
-    public string Type;
-    public int Count;
-    public int Index;
-}
-
-public struct Input
-{
-    public string Variable;
-    public string Type;
-    public int Index;
-    public string Semantic;
-}
-
-public struct Output
-{
-    public string Variable;
-    public string Type;
-    public int Index;
-    public string Semantic; 
-}
-
-public class UsfConverter
+public class DestinyToUnityHLSL
 {
     private StringReader hlsl;
-    private StringBuilder usf;
+    private StringBuilder unityHLSL;
     private bool bOpacityEnabled = false;
     private List<Texture> textures = new List<Texture>();
     private List<int> samplers = new List<int>();
     private List<Cbuffer> cbuffers = new List<Cbuffer>();
     private List<Input> inputs = new List<Input>();
     private List<Output> outputs = new List<Output>();
-    
-    public string HlslToUsf(Material material, string hlslText, bool bIsVertexShader)
+
+    public string Hlsl2UnityHlsl(Material material, string hlslText, bool bIsVertexShader)
     {
 
         hlsl = new StringReader(hlslText);
 
 
-        usf = new StringBuilder();
+        unityHLSL = new StringBuilder();
         bOpacityEnabled = false;
         ProcessHlslData();
         if (bOpacityEnabled)
         {
-            usf.AppendLine("// masked");
+            unityHLSL.AppendLine("// masked");
         }
         // WriteTextureComments(material, bIsVertexShader);
         WriteCbuffers(material, bIsVertexShader);
@@ -78,7 +47,8 @@ public class UsfConverter
         }
 
         WriteFooter(bIsVertexShader);
-        return usf.ToString();
+        Console.WriteLine("Did it");
+        return unityHLSL.ToString();
     }
 
     private void ProcessHlslData()
@@ -110,6 +80,10 @@ public class UsfConverter
                     Texture texture = new Texture();
                     texture.Dimension = line.Split("<")[0];
                     texture.Type = line.Split("<")[1].Split(">")[0];
+
+                    //unity shenanigans
+                    texture.Type = texture.Type == "float4" ? "Texture2D<float4>" : texture.Type;
+
                     texture.Variable = line.Split("> ")[1].Split(" :")[0];
                     texture.Index = Int32.TryParse(new string(texture.Variable.Skip(1).ToArray()), out int index) ? index : -1;
                     textures.Add(texture);
@@ -145,6 +119,7 @@ public class UsfConverter
                     output.Index = Int32.TryParse(new string(output.Variable.Skip(1).ToArray()), out int index) ? index : -1;
                     output.Semantic = line.Split(" : ")[1].Split(",")[0];
                     output.Type = line.Split("out ")[1].Split(" o")[0];
+
                     outputs.Add(output);
                 }
             }
@@ -157,8 +132,8 @@ public class UsfConverter
         // Try to find matches, pixel shader has Unk2D0 Unk2E0 Unk2F0 Unk300 available
         foreach (var cbuffer in cbuffers)
         {
-            usf.AppendLine($"static {cbuffer.Type} {cbuffer.Variable}[{cbuffer.Count}] = ").AppendLine("{");
-            
+            unityHLSL.AppendLine($"static {cbuffer.Type} {cbuffer.Variable}[{cbuffer.Count}] = ").AppendLine("{");
+
             dynamic data = null;
             if (bIsVertexShader)
             {
@@ -210,11 +185,11 @@ public class UsfConverter
                             List<Vector4> float4s = new List<Vector4>();
                             for (int i = 0; i < containerData.Length / 16; i++)
                             {
-                                float4s.Add(StructConverter.ToStructure<Vector4>(containerData.Skip(i*16).Take(16).ToArray()));
+                                float4s.Add(StructConverter.ToStructure<Vector4>(containerData.Skip(i * 16).Take(16).ToArray()));
                             }
 
                             data = float4s;
-                        }                        
+                        }
                     }
 
                 }
@@ -226,118 +201,99 @@ public class UsfConverter
                 switch (cbuffer.Type)
                 {
                     case "float4":
-                        if (data == null) usf.AppendLine("    float4(0.0, 0.0, 0.0, 0.0),");
+                        if (data == null) unityHLSL.AppendLine("    float4(0.0, 0.0, 0.0, 0.0),");
                         else
                         {
                             try
                             {
                                 if (data[i] is Vector4)
                                 {
-                                    usf.AppendLine($"    float4({data[i].X}, {data[i].Y}, {data[i].Z}, {data[i].W}),");
+                                    unityHLSL.AppendLine($"    float4({data[i].X}, {data[i].Y}, {data[i].Z}, {data[i].W}),");
                                 }
                                 else
                                 {
                                     var x = data[i].Unk00.X; // really bad but required
-                                    usf.AppendLine($"    float4({x}, {data[i].Unk00.Y}, {data[i].Unk00.Z}, {data[i].Unk00.W}),");
+                                    unityHLSL.AppendLine($"    float4({x}, {data[i].Unk00.Y}, {data[i].Unk00.Z}, {data[i].Unk00.W}),");
                                 }
                             }
                             catch (Exception e)  // figure out whats up here, taniks breaks it
                             {
-                                usf.AppendLine("    float4(0.0, 0.0, 0.0, 0.0),");
+                                unityHLSL.AppendLine("    float4(0.0, 0.0, 0.0, 0.0),");
                             }
                         }
                         break;
                     case "float3":
-                        if (data == null) usf.AppendLine("    float3(0.0, 0.0, 0.0),");
-                        else usf.AppendLine($"    float3({data[i].Unk00.X}, {data[i].Unk00.Y}, {data[i].Unk00.Z}),");
+                        if (data == null) unityHLSL.AppendLine("    float3(0.0, 0.0, 0.0),");
+                        else unityHLSL.AppendLine($"    float3({data[i].Unk00.X}, {data[i].Unk00.Y}, {data[i].Unk00.Z}),");
                         break;
                     case "float":
-                        if (data == null) usf.AppendLine("    float(0.0),");
-                        else usf.AppendLine($"    float4({data[i].Unk00}),");
+                        if (data == null) unityHLSL.AppendLine("    float(0.0),");
+                        else unityHLSL.AppendLine($"    float4({data[i].Unk00}),");
                         break;
                     default:
                         throw new NotImplementedException();
-                }  
+                }
             }
 
-            usf.AppendLine("};");
+            unityHLSL.AppendLine("};");
         }
     }
-    
+
+    /// <summary>
+    /// At this point all there is is the cbuffer definition
+    /// </summary>
+    /// <param name="bIsVertexShader"></param>
     private void WriteFunctionDefinition(bool bIsVertexShader)
     {
+        //prelim stuff first. For now, i have no clue what this stuff does, but it works so i'm leaving it in
+        unityHLSL.AppendLine("#ifndef MYHLSLINCLUDE_INCLUDED").AppendLine("#define MYHLSLINCLUDE_INCLUDED");
+
+
+        //Write in the v things (why this is inside the function definition instead of outside i don't know)
         if (!bIsVertexShader)
         {
             foreach (var i in inputs)
             {
                 if (i.Type == "float4")
                 {
-                    usf.AppendLine($"static {i.Type} {i.Variable} = " + "{1, 1, 1, 1};\n");
+                    unityHLSL.AppendLine($"static {i.Type} {i.Variable} = " + "{1, 1, 1, 1};\n");
                 }
                 else if (i.Type == "float3")
                 {
-                    usf.AppendLine($"static {i.Type} {i.Variable} = " + "{1, 1, 1};\n");
+                    unityHLSL.AppendLine($"static {i.Type} {i.Variable} = " + "{1, 1, 1};\n");
                 }
                 else if (i.Type == "uint")
                 {
-                    usf.AppendLine($"static {i.Type} {i.Variable} = " + "1;\n");
+                    unityHLSL.AppendLine($"static {i.Type} {i.Variable} = " + "1;\n");
                 }
             }
         }
-        usf.AppendLine("#define cmp -").AppendLine("struct shader {");
-        if (bIsVertexShader)
+
+        unityHLSL.AppendLine("#define cmp -").AppendLine("void main_float");
+        unityHLSL.Append("(");
+        //Explaination in function
+        WriteThatDefaultGarbage();
+        unityHLSL.Append(")");
+
+        unityHLSL.AppendLine("{").AppendLine("");
+        // Output render targets, todo support vertex shader
+        unityHLSL.AppendLine("    float4 o0,o1,o2;");
+        foreach (var i in inputs)
         {
-            foreach (var output in outputs)
+            if (i.Type == "float4")
             {
-                usf.AppendLine($"{output.Type} {output.Variable};");
+                unityHLSL.AppendLine($"    {i.Variable}.xyzw = {i.Variable}.xyzw * tx.xyxy;");
             }
-
-            usf.AppendLine().AppendLine("void main(");
-            foreach (var texture in textures)
+            else if (i.Type == "float3")
             {
-                usf.AppendLine($"   {texture.Type} {texture.Variable},");
+                unityHLSL.AppendLine($"    {i.Variable}.xyz = {i.Variable}.xyz * tx.xyx;");
             }
-            for (var i = 0; i < inputs.Count; i++)
+            else if (i.Type == "uint")
             {
-                if (i == inputs.Count - 1)
-                {
-                    usf.AppendLine($"   {inputs[i].Type} {inputs[i].Variable}) // {inputs[i].Semantic}");
-                }
-                else
-                {
-                    usf.AppendLine($"   {inputs[i].Type} {inputs[i].Variable}, // {inputs[i].Semantic}");
-                }
+                unityHLSL.AppendLine($"    {i.Variable}.x = {i.Variable}.x * tx.x;");
             }
         }
-        else
-        {
-            usf.AppendLine("FMaterialAttributes main(");
-            foreach (var texture in textures)
-            {
-                usf.AppendLine($"   {texture.Type} {texture.Variable},");
-            }
-
-            usf.AppendLine($"   float2 tx)");
-
-            usf.AppendLine("{").AppendLine("    FMaterialAttributes output;");
-            // Output render targets, todo support vertex shader
-            usf.AppendLine("    float4 o0,o1,o2;");
-            foreach (var i in inputs)
-            {
-                if (i.Type == "float4")
-                {
-                    usf.AppendLine($"    {i.Variable}.xyzw = {i.Variable}.xyzw * tx.xyxy;");
-                }
-                else if (i.Type == "float3")
-                {
-                    usf.AppendLine($"    {i.Variable}.xyz = {i.Variable}.xyz * tx.xyx;");
-                }
-                else if (i.Type == "uint")
-                {
-                    usf.AppendLine($"    {i.Variable}.x = {i.Variable}.x * tx.x;");
-                }
-            }
-        }
+               
     }
 
     private bool ConvertInstructions()
@@ -373,6 +329,7 @@ public class UsfConverter
                 {
                     break;
                 }
+                /* we don't do that here
                 if (line.Contains("Sample"))
                 {
                     var equal = line.Split("=")[0];
@@ -381,16 +338,17 @@ public class UsfConverter
                     var sampleUv = line.Split(", ")[1].Split(")")[0];
                     var dotAfter = line.Split(").")[1];
                     // todo add dimension
-                    usf.AppendLine($"   {equal}= Material_Texture2D_{sortedIndices.IndexOf(texIndex)}.SampleLevel(Material_Texture2D_{sampleIndex-1}Sampler, {sampleUv}, 0).{dotAfter}");
+                    unityHLSL.AppendLine($"   {equal}= Material_Texture2D_{sortedIndices.IndexOf(texIndex)}.SampleLevel(Material_Texture2D_{sampleIndex - 1}Sampler, {sampleUv}, 0).{dotAfter}");
                 }
+
                 // todo add load, levelofdetail, o0.w, discard
                 else if (line.Contains("discard"))
                 {
-                    usf.AppendLine(line.Replace("discard", "{ output.OpacityMask = 0; return output; }"));
-                }
+                    unityHLSL.AppendLine(line.Replace("discard", "{ output.OpacityMask = 0; return output; }"));
+                }*/
                 else
                 {
-                    usf.AppendLine(line);
+                    unityHLSL.AppendLine(line);
                 }
             }
         } while (line != null);
@@ -398,45 +356,98 @@ public class UsfConverter
         return true;
     }
 
+    /// <summary>
+    /// Write the default stuff
+    /// Why are there so many inputs and stuff?
+    /// Because apparently unity's shadernode graph doesn't support script editing
+    /// Therefore I try to automate as much as I can so that the only user interaction is
+    /// Assigning this created here shader
+    /// Also unused textures and sample states don't cause errors.
+    /// Hopefully there isn't a shader that needs more than 30 textures
+    /// </summary>
+    private void WriteThatDefaultGarbage()
+    {
+        string inputOutputString = @"
+        SamplerState s1_s,
+        SamplerState s2_s,
+        SamplerState s3_s,
+        SamplerState s4_s,
+        SamplerState s5_s,
+        SamplerState s6_s,
+        SamplerState s7_s,
+
+        float2 tx,
+
+        Texture2D<float4> t0,
+        Texture2D<float4> t1,
+        Texture2D<float4> t2,
+        Texture2D<float4> t3,
+        Texture2D<float4> t4,
+        Texture2D<float4> t5,
+        Texture2D<float4> t6,
+        Texture2D<float4> t7,
+        Texture2D<float4> t8,
+        Texture2D<float4> t9,
+        Texture2D<float4> t10,
+        Texture2D<float4> t11,
+        Texture2D<float4> t12,
+        Texture2D<float4> t13,
+        Texture2D<float4> t14,
+        Texture2D<float4> t15,
+        Texture2D<float4> t16,
+        Texture2D<float4> t17,
+        Texture2D<float4> t18,
+        Texture2D<float4> t19,
+        Texture2D<float4> t20,
+        Texture2D<float4> t21,
+        Texture2D<float4> t22,
+        Texture2D<float4> t23,
+        Texture2D<float4> t24,
+        Texture2D<float4> t25,
+        Texture2D<float4> t26,
+        Texture2D<float4> t27,
+        Texture2D<float4> t28,
+        Texture2D<float4> t29,
+
+        out float3 Base,
+        out float3 Normal,
+        out float Metallic,
+        out float EmissiveColor,
+        out float Smoothness,
+        out float AO,
+        out float Alpha";
+        unityHLSL.AppendLine(inputOutputString);
+    }
+
     private void AddOutputs()
     {
         string outputString = @"
-        ///RT0
-        output.BaseColor = o0.xyz; // Albedo
+        //Base and alpha
+        Base = o0.xyz; 
+        Alpha = o0.w;
         
-        ///RT1
 
         // Normal
         float3 biased_normal = o1.xyz - float3(0.5, 0.5, 0.5);
         float normal_length = length(biased_normal);
         float3 normal_in_world_space = biased_normal / normal_length;
-        output.Normal = float3(1-normal_in_world_space.x, normal_in_world_space.y, normal_in_world_space.z);
-		//output.Normal = Material_Texture2D_2.SampleLevel(Material_Texture2D_0Sampler, v3.xy, 0).xyz;
-        //output.Normal.z = sqrt(1.0 - saturate(dot(output.Normal.xy, output.Normal.xy)));
-        //output.Normal = normalize(output.Normal);
+        Normal = float3(1 - normal_in_world_space.x, normal_in_world_space.y, normal_in_world_space.z);
 
-        // Roughness
+        //Smoothness (unity doesn't do roughness)
         float smoothness = saturate(8 * (normal_length - 0.375));
-        output.Roughness = 1 - smoothness;
+        Smoothness = 1 - smoothness;
  
-        ///RT2
-        output.Metallic = o2.x;
-        output.EmissiveColor = (o2.y - 0.5) * 2 * 5 * output.BaseColor;  // the *5 is a scale to make it look good
-        output.AmbientOcclusion = o2.y * 2; // Texture AO
-
-        output.OpacityMask = 1;
-
-        return output;
+            ///RT2
+        Metallic = o2.x;
+        EmissiveColor = (o2.y - 0.5) * 2 * 5 * Base; // the *5 is a scale to make it look good
+        AO = o2.y * 2; // Texture AO
+    }
         ";
-        usf.AppendLine(outputString);
+        unityHLSL.AppendLine(outputString);
     }
 
     private void WriteFooter(bool bIsVertexShader)
     {
-        usf.AppendLine("}").AppendLine("};");
-        if (!bIsVertexShader)
-        {
-            usf.AppendLine("shader s;").AppendLine($"return s.main({String.Join(',', textures.Select(x => x.Variable))},tx);");
-        }
+        unityHLSL.AppendLine("#endif");
     }
 }

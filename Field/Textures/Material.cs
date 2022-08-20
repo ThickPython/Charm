@@ -136,6 +136,8 @@ public class Material : Tag
         if (Header.PixelShader != null && !File.Exists($"{saveDirectory}/PS_{Hash}.usf"))
         {
             string hlsl = Decompile(Header.PixelShader.GetBytecode());
+
+            
             string usf = new UsfConverter().HlslToUsf(this, hlsl, false);
             if (usf != String.Empty)
             {
@@ -147,6 +149,21 @@ public class Material : Tag
                 {
                 }
             }
+
+            //Destiny things
+            string dHlsl = new DestinyToUnityHLSL().Hlsl2UnityHlsl(this, hlsl, false);
+            if (dHlsl != String.Empty)
+            {
+                try
+                {
+                    File.WriteAllText($"{saveDirectory}/PS_{Hash}.hlsl", dHlsl);
+                }
+                catch (IOException)  // threading error
+                {
+                }
+            }
+
+
         }
     }
     

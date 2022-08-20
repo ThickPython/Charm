@@ -9,6 +9,7 @@
         <Platforms>AnyCPU;x64</Platforms>
     </PropertyGroup>
 
+
     <ItemGroup>
       <PackageReference Include="DirectXTexNet" Version="1.0.3" />
       <PackageReference Include="NAudio.Vorbis" Version="1.5.0" />

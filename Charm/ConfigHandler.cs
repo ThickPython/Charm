@@ -215,11 +215,87 @@ public class ConfigHandler
         }
         return _config.AppSettings.Settings["unrealInteropEnabled"].Value == "True";
     }
-    
+
+    #endregion
+
+    #region unityInteropPath
+
+    public static void OpenUnityInteropPathDialog()
+    {
+        using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+        {
+            bool success = false;
+            while (!success)
+            {
+                dialog.Description = "Select the folder where you want to import to Unity engine (could be a folder in the assets folder or whatever)";
+                System.Windows.Forms.DialogResult result = dialog.ShowDialog();
+                if (result == System.Windows.Forms.DialogResult.OK)
+                {
+                    success = TrySetUnityInteropPath(dialog.SelectedPath);
+                }
+            }
+        }
+    }
+
+    public static bool TrySetUnityInteropPath(string interopPath)
+    {
+        if (!interopPath.Contains("Assets"))
+        {
+            return false;
+        }
+        if (_config.AppSettings.Settings["UnityInteropPath"] == null)
+        {
+            _config.AppSettings.Settings.Add("UnityInteropPath", interopPath);
+            SetUnityInteropEnabled(true);
+        }
+        else
+        {
+            _config.AppSettings.Settings["UnityInteropPath"].Value = interopPath;
+        }
+        Save();
+        return true;
+    }
+
+    public static string GetUnityInteropPath()
+    {
+        if (_config.AppSettings.Settings["UnityInteropPath"] == null)
+        {
+            return "";
+        }
+        return _config.AppSettings.Settings["UnityInteropPath"].Value;
+    }
+
+    #endregion
+
+
+    #region unity Interop Enabled
+    public static void SetUnityInteropEnabled(bool bUnityInteropEnabled)
+    {
+        if (_config.AppSettings.Settings["unityInteropEnabled"] == null)
+        {
+            _config.AppSettings.Settings.Add("unityInteropEnabled", bUnityInteropEnabled.ToString());
+        }
+        else
+        {
+            _config.AppSettings.Settings["unityInteropEnabled"].Value = bUnityInteropEnabled.ToString();
+        }
+
+        Save();
+    }
+
+    public static bool GetUnityInteropEnabled()
+    {
+        if (_config.AppSettings.Settings["unityInteropEnabled"] == null)
+        {
+            return false;
+        }
+        return _config.AppSettings.Settings["unityInteropEnabled"].Value == "True";
+    }
+
     #endregion
 
     #region blenderInteropEnabled
-    
+
     public static void SetBlenderInteropEnabled(bool bBlenderInteropEnabled)
     {
         if (_config.AppSettings.Settings["blenderInteropEnabled"] == null)

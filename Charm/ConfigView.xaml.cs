@@ -54,6 +54,22 @@ public partial class ConfigView : UserControl
         cii.ChangeButton.Click += UnrealInteropEnabled_OnClick;
         ConfigPanel.Children.Add(cii);
 
+        //Unity interop path
+        ConfigSettingControl cup = new ConfigSettingControl();
+        cup.SettingName = "Unity content path";
+        val = ConfigHandler.GetUnityInteropPath();
+        cup.SettingValue = val == "" ? "Not set" : val;
+        cup.ChangeButton.Click += UnityInteropPath_OnClick;
+        ConfigPanel.Children.Add(cup);
+
+        //Enable Unity interop
+        ConfigSettingControl cun = new ConfigSettingControl();
+        cun.SettingName = "Generate Unity importing files";
+        bool bval3 = ConfigHandler.GetUnityInteropEnabled();
+        cun.SettingValue = bval.ToString();
+        cun.ChangeButton.Click += UnityInteropEnabled_OnClick;
+        ConfigPanel.Children.Add(cun);
+
         // Enable Blender interop
         ConfigSettingControl cbe = new ConfigSettingControl();
         cbe.SettingName = "Generate Blender importing script";
@@ -134,6 +150,23 @@ public partial class ConfigView : UserControl
             return;
         }
         ConfigHandler.SetUnrealInteropEnabled(!ConfigHandler.GetUnrealInteropEnabled());
+        PopulateConfigPanel();
+    }
+
+    private void UnityInteropPath_OnClick(object sender, RoutedEventArgs e)
+    {
+        ConfigHandler.OpenUnityInteropPathDialog();
+        PopulateConfigPanel();
+    }
+
+    private void UnityInteropEnabled_OnClick(object sender, RoutedEventArgs e)
+    {
+        if(!ConfigHandler.DoesPathKeyExist("unityInteropPath"))
+        {
+            MessageBox.Show("Please set the path to the Unity Engine content folder first.");
+            return;
+        }
+        ConfigHandler.SetUnityInteropEnabled(!ConfigHandler.GetUnityInteropEnabled());
         PopulateConfigPanel();
     }
 

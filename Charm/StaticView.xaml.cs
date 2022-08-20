@@ -57,6 +57,10 @@ public partial class StaticView : UserControl
                 //AutomatedImporter.SaveInteropBlenderPythonFile(savePath, meshName, AutomatedImporter.EImportType.Static, ConfigHandler.GetOutputTextureFormat());
 
             }
+            if(ConfigHandler.GetUnityInteropEnabled())
+            {
+                AutomatedImporter.SaveInteropUnityFile(savePath, ConfigHandler.GetUnityInteropPath(), meshName, AutomatedImporter.EImportType.Static, ConfigHandler.GetOutputTextureFormat());
+            }
         }
         fbxHandler.ExportScene($"{savePath}/{name}.fbx");
     }
