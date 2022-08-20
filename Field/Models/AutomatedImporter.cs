@@ -73,7 +73,7 @@ public class AutomatedImporter
         //Copy over the default hlsl and default shadergraph
         File.Copy("../../../../../Field/UnityImportThings/C2Utemplate.shadergraph", $"{unityDirectory}/C2Utemplate.shadergraph", true);
         File.Copy("../../../../../Field/UnityImportThings/DefaultHLSL.hlsl", $"{unityDirectory}/DefaultHLSL.hlsl", true);
-
+        File.Copy("../../../../../Field/UnityImportThings/SHADERTEMPLATENEW.txt", $"{unityDirectory}/SHADERTEMPLATENEW.txt", true);
     }
 
     public static void SaveInteropBlenderPythonFile(string saveDirectory, string meshName, EImportType importType, ETextureFormat textureFormat, bool bSingleFolder = true)

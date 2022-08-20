@@ -1,10 +1,4 @@
 using UnityEditor;
-using UnityEditor.ShaderGraph;
-using UnityEditor.ShaderGraph.Internal;
-using UnityEditor.ShaderGraph.Drawing;
-using UnityEditor.ShaderGraph.Legacy;
-using UnityEditor.ShaderGraph.Serialization;
-using UnityEditor.Graphing;
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
@@ -27,15 +21,23 @@ namespace CharmToUnityWindow
         string pathToUCAbsolute = @"replacePathToUCAbsolute";
         //path to unity contents but localized to the projects folder
         string pathToUCLocal = "";
-        //texture file type
-        string fileTypeExtention = "";
+
+        //Whether to assign static to all
+        bool setAsStatic = true;
+
+        //whether to treat it as a map import
+        bool importAsMap = false;
 
         //folders 
         string f_Textures = "Textures";
         string f_Shaders = "Shaders";
         string f_CustomHLSL = "HLSLs";
         string f_Materials = "Materials";
+        string f_Prefabs = "Prefabs";
+        string f_FBX = "FBXs";
 
+        //window settings
+        public Rect windowRect = new Rect(20, 20, 600, 150);
 
         string identifier;
         [MenuItem("Window/CharmToUnity/CharmToUnityWindow")]
@@ -47,45 +49,94 @@ namespace CharmToUnityWindow
         private void OnGUI()
         {
             pathToUCAbsolute = pathToUCAbsolute.Replace('\\', '/');
-            pathToUCLocal = pathToUCAbsolute.Substring(pathToUCAbsolute.IndexOf("Assets"));
-            if (pathToUCLocal[pathToUCLocal.Length - 1] == '/') pathToUCLocal.Substring(0, pathToUCLocal.Length - 2);
+            pathToCharmContents = pathToCharmContents.Replace('\\', '/');
 
-            GUILayout.Label("Settings", EditorStyles.boldLabel);
-            pathToUCAbsolute = EditorGUILayout.TextField("Absolute path to unity contents", pathToUCAbsolute);
+            if (pathToUCAbsolute != @"replacePathToUCAbsolute")
+            {
+                pathToUCLocal = pathToUCAbsolute.Substring(pathToUCAbsolute.IndexOf("Assets"));
+                if (pathToUCLocal[pathToUCLocal.Length - 1] == '/') pathToUCLocal.Substring(0, pathToUCLocal.Length - 2);
+            }
+            
 
-            f_Textures = EditorGUILayout.TextField("Textures folder", f_Textures);
-            f_Shaders = EditorGUILayout.TextField("Shaders folder (has shader graphs)", f_Shaders);
-            f_CustomHLSL = EditorGUILayout.TextField("HLSL folder (has code for custom nodes)", f_CustomHLSL);
-            f_Materials = EditorGUILayout.TextField("Materials folder", f_Materials);
+            windowRect = GUI.Window(0, windowRect, DoMyWindow, "CharmToUnity");
 
-            if (GUILayout.Button("Import everything"))
+            GUILayout.Label("Import options", EditorStyles.boldLabel);
+            pathToUCAbsolute = EditorGUILayout.TextField("Absolute path to Unity contents", pathToUCAbsolute);
+            pathToCharmContents = EditorGUILayout.TextField("Absolute path to Charm output", pathToCharmContents);
+            textureType = EditorGUILayout.TextField("Texture type extention", textureType);
+            setAsStatic = EditorGUILayout.Toggle("Set imports as static?", setAsStatic);
+            importAsMap = EditorGUILayout.Toggle("This is a map import", importAsMap);
+            EditorGUILayout.Space();
+
+
+            GUILayout.Label("Folder names for certain things", EditorStyles.boldLabel);
+            f_Textures = EditorGUILayout.TextField("Textures", f_Textures);
+            f_Shaders = EditorGUILayout.TextField("Shaders (has shader graphs)", f_Shaders);
+            f_CustomHLSL = EditorGUILayout.TextField("HLSL (has code for custom nodes)", f_CustomHLSL);
+            f_Materials = EditorGUILayout.TextField("Materials", f_Materials);
+            f_Prefabs = EditorGUILayout.TextField("Prefabs", f_Prefabs);
+            f_FBX = EditorGUILayout.TextField("FBX folder", f_FBX);
+            EditorGUILayout.Space();
+            
+
+            if(GUILayout.Button("Import materials"))
             {
-                ImportEverything();
+                PrelimCheckAndSetup();
+                ImportMaterials();
             }
-            string shaderName = "";
-            shaderName = EditorGUILayout.TextField("shaderName", shaderName);
-            if (GUILayout.Button("Get shader by name"))
+
+            if (GUILayout.Button("Import meshes"))
             {
-                Material mat = new Material(Shader.Find(shaderName));
-                mat.name = shaderName;
-                AssetDatabase.CreateAsset(mat, pathToUCAbsolute + @"\Materials");
+                PrelimCheckAndSetup();
+                Import_Entity();
             }
-            if (GUILayout.Button("Bruh"))
+
+            if(GUILayout.Button("Assign materials"))
             {
-                Texture toGet = AssetDatabase.LoadAssetAtPath<Texture>("Assets/8283AE80/Textures/PS_0_1C63BC80.png");
-                Debug.Log(toGet.name);
+                PrelimCheckAndSetup();
+                AssignMaterials();
             }
+
+            if(GUILayout.Button("Create prefab"))
+            {
+                PrelimCheckAndSetup();
+                CreatePrefab();
+            }
+            EditorGUILayout.Space();
+
+
+            if (GUILayout.Button("Import everything (do everything above)"))
+            {
+                foreach(string path in Directory.GetFiles(pathToCharmContents))
+                {
+                    if(path.Split("_").Last<string>() == "info.cfg")
+                    {
+                        string batchHash = path.Split('\\').Last();
+                        string deserialized = string.Join("\n", File.ReadAllLines($"{pathToCharmContents}/{batchHash}"));
+                        importConfig = JsonConvert.DeserializeObject<ImportConfig>(deserialized);
+
+                        PrelimCheckAndSetup(false);
+                        ImportMaterialsTest();
+                        Import_Entity();
+                        AssignMaterials();
+                        CreatePrefab();
+                    }
+                }
+                
+            }
+            
         }
 
-
-        void ImportEverything()
+        void DoMyWindow(int windowID)
         {
-            PrelimCheck();
-            Import();
+            GUI.DragWindow();
         }
+
+        ImportConfig importConfig;
+
 
         //Adds the necessary folders if they don't exist yet
-        void PrelimCheck()
+        void PrelimCheckAndSetup(bool getCfgDefault = true)
         {
             //Check/Create materials
             if (!Directory.Exists(pathToUCAbsolute + $"/{f_Materials}"))
@@ -104,48 +155,51 @@ namespace CharmToUnityWindow
             {
                 Directory.CreateDirectory(pathToUCAbsolute + $"/{f_CustomHLSL}");
             }
+            if (!Directory.Exists(pathToUCAbsolute + $"/{f_FBX}"))
+            {
+                Directory.CreateDirectory(pathToUCAbsolute + $"/{f_FBX}");
+            }
+            if (!Directory.Exists(pathToUCAbsolute + $"/{f_Prefabs}"))
+            {
+                Directory.CreateDirectory(pathToUCAbsolute + $"/{f_Prefabs}");
+            }
 
+
+            //if map rip then don't do this
+            if(getCfgDefault)
+            {
+                string batchHash = pathToCharmContents.Split('/').Last();
+                string deserialized = string.Join("\n", File.ReadAllLines($"{pathToCharmContents}/{batchHash}_info.cfg"));
+                importConfig = JsonConvert.DeserializeObject<ImportConfig>(deserialized);
+            }
+            
         }
 
-        /// <summary>
-        /// Imports a batch of stuff
-        /// </summary>
-        void Import()
+        
+
+        void ImportMaterials()
         {
-            //get textures file extention 
-            fileTypeExtention = Path.GetExtension(Directory.GetFiles(pathToCharmContents + $"/{f_Textures}")[0]);
-
-            //read all lines in cfg file to string
-            string batchHash = pathToCharmContents.Split('/').Last();
-            string deserialized = string.Join("\n", File.ReadAllLines($"{pathToCharmContents}/{batchHash}_info.cfg"));
-
-            ImportConfig importConfig = JsonConvert.DeserializeObject<ImportConfig>(deserialized);
-
-            Debug.Log(deserialized);
             foreach (var newShader in importConfig.Materials.Keys)
             {
-                Debug.Log(newShader + "is the material of today");
-
+                Debug.Log($"Importing material with name [{newShader}]");
                 //Create shader
                 Debug.Log("Creating the shader by name " + newShader);
-
-
-                FileCopyWithoutCringe(pathToUCAbsolute + @"\C2Utemplate.shadergraph", pathToUCAbsolute + $"/Shaders/{newShader}.shadergraph");
+                File.Copy(pathToUCAbsolute + @"\C2Utemplate.shadergraph", pathToUCAbsolute + $"/Shaders/{newShader}.shadergraph", true);
                 AssetDatabase.Refresh();
-
-
 
                 //Create material
                 Material mat;
+                Shader toAssign = AssetDatabase.LoadAssetAtPath<Shader>(pathToUCLocal + $"/Shaders/{newShader}.shadergraph");
 
+                //Use material if it already exists
                 if (File.Exists(pathToUCAbsolute + $"{f_Materials}/{newShader}.mat"))
                 {
                     Debug.Log($"{newShader} mat already exists! Using that instead");
                     mat = AssetDatabase.LoadAssetAtPath<Material>(pathToUCLocal + $"{f_Materials}/{newShader}.mat");
+                    mat.shader = toAssign;
                 }
                 else
                 {
-                    Shader toAssign = AssetDatabase.LoadAssetAtPath<Shader>(pathToUCLocal + $"/Shaders/{newShader}.shadergraph");
                     Debug.Log("Creating the material by same name " + newShader);
                     //Create new material
                     mat = new Material(toAssign);
@@ -161,36 +215,189 @@ namespace CharmToUnityWindow
                     Directory.CreateDirectory(pathToUCAbsolute + $"/{f_Textures}/{newShader}");
                 }
 
-                //copy all of the textures for this material to the textures folder then assign them
-                Debug.Log(importConfig.Materials[newShader]["PS"]["0"].Hash);
-
-
+                Debug.Log($"Creating materials for [{newShader}]");
+                //import all of the textures for this material to the textures folder then assign them
                 Dictionary<string, TexInfo> texturesObj = importConfig.Materials[newShader]["PS"];
                 for (int i = 0; i < texturesObj.Count; i++)
                 {
-                    string textureName = $"PS_{i}_" + texturesObj[i.ToString()].Hash + textureType;
-                    //get path to texture
+                    //get absolute path to texture
+                    string textureName = $"PS_{texturesObj.ElementAt(i).Key}_" + texturesObj[texturesObj.ElementAt(i).Key].Hash + textureType;
                     string path = pathToCharmContents + "/Textures/" + textureName;
-                    File.Copy(path, pathToUCAbsolute + $"/{f_Textures}/{newShader}/{textureName}");
+                    File.Copy(path, pathToUCAbsolute + $"/{f_Textures}/{newShader}/{textureName}", true);
 
                     AssetDatabase.Refresh();
 
+                    //assign textures to mat
                     Texture2D toSet = AssetDatabase.LoadAssetAtPath<Texture2D>(pathToUCLocal + $"/{f_Textures}/{newShader}/{textureName}");
                     Debug.Log(toSet.name);
                     mat.SetTexture($"_t_{i}", toSet);
                 }
 
                 //Copy shaders from charm
-                FileCopyWithoutCringe($"{pathToCharmContents}/Shaders/PS_{newShader}.hlsl", $"{pathToUCAbsolute}/{f_CustomHLSL}/PS_{newShader}.hlsl");
+                if (File.Exists($"{pathToCharmContents}/Shaders/PS_{newShader}.hlsl"))
+                {
+                    File.Copy($"{pathToCharmContents}/Shaders/PS_{newShader}.hlsl", $"{pathToUCAbsolute}/{f_CustomHLSL}/{newShader}.hlsl", true);
+                }
+            }
+        }
+        void ImportMaterialsTest()
+        {
+            foreach (var newShader in importConfig.Materials.Keys)
+            {
+                Debug.Log($"Importing material with name [{newShader}]");
+                //Create shader
+                Debug.Log("Creating the shader by name " + newShader);
+                //File.Copy(pathToUCAbsolute + @"\C2Utemplate.shadergraph", pathToUCAbsolute + $"/Shaders/{newShader}.shadergraph", true);
                 AssetDatabase.Refresh();
 
+                //Create material
+                Material mat;
+                Shader toAssign;
+                //Copy shaders from charm
+                if (File.Exists($"{pathToCharmContents}/Shaders/PS_{newShader}.hlsl"))
+                {
+                    //copy the hlsl
+                    File.Copy($"{pathToCharmContents}/Shaders/PS_{newShader}.hlsl", $"{pathToUCAbsolute}/{f_CustomHLSL}/{newShader}.hlsl", true);
+
+                    //create new shader from template
+                    string newCompiled = string.Join("\n", File.ReadAllLines($"{pathToUCAbsolute}/SHADERTEMPLATENEW.txt"));
+                    newCompiled = newCompiled.Replace("REPLACEMEWITHPATHTOSHADER", $"{pathToUCLocal}/{f_CustomHLSL}/{newShader}.hlsl");
+                    newCompiled = newCompiled.Replace("REPLACESHADERNAMEPLEASE", $"{newShader}_Compiled");
+                    File.WriteAllText($"{pathToUCAbsolute}/{f_CustomHLSL}/{newShader}_COMPILED.shader", newCompiled);
+                    AssetDatabase.Refresh();
+                    toAssign = AssetDatabase.LoadAssetAtPath<Shader>($"{pathToUCLocal}/{f_CustomHLSL}/{newShader}_COMPILED.shader");
+                } else
+                {
+                    toAssign = Shader.Find("HDRP/Lit");
+                }
+
+                //Use material if it already exists
+                if (File.Exists(pathToUCAbsolute + $"{f_Materials}/{newShader}.mat"))
+                {
+                    Debug.Log($"{newShader} mat already exists! Using that instead");
+                    mat = AssetDatabase.LoadAssetAtPath<Material>(pathToUCLocal + $"{f_Materials}/{newShader}.mat");
+                    mat.shader = toAssign;
+                }
+                else
+                {
+                    Debug.Log("Creating the material by same name " + newShader);
+                    //Create new material
+                    mat = new Material(toAssign);
+                    mat.name = newShader;
+                    AssetDatabase.CreateAsset(mat, pathToUCLocal + $"/{f_Materials}/{newShader}.mat");
+                }
+
+                //Assign textures to material
+
+                //Create folder for this mats textures
+                if (!Directory.Exists(pathToUCAbsolute + $"/{f_Textures}/{newShader}"))
+                {
+                    Directory.CreateDirectory(pathToUCAbsolute + $"/{f_Textures}/{newShader}");
+                }
+
+                Debug.Log($"Creating materials for [{newShader}]");
+                //import all of the textures for this material to the textures folder then assign them
+                Dictionary<string, TexInfo> texturesObj = importConfig.Materials[newShader]["PS"];
+                for (int i = 0; i < texturesObj.Count; i++)
+                {
+                    //get absolute path to texture
+                    string textureName = $"PS_{texturesObj.ElementAt(i).Key}_" + texturesObj[texturesObj.ElementAt(i).Key].Hash + textureType;
+                    string path = pathToCharmContents + "/Textures/" + textureName;
+                    File.Copy(path, pathToUCAbsolute + $"/{f_Textures}/{newShader}/{textureName}", true);
+
+                    AssetDatabase.Refresh();
+
+                    //assign textures to mat
+                    Texture2D toSet = AssetDatabase.LoadAssetAtPath<Texture2D>(pathToUCLocal + $"/{f_Textures}/{newShader}/{textureName}");
+                    Debug.Log(toSet.name);
+                    mat.SetTexture($"_t_{i}", toSet);
+                }
+
+                
+            }
+        }
+        void Import_Entity()
+        {
+            Debug.Log($"Importing meshes for {importConfig.MeshName}");
+            string fbxName = importConfig.MeshName ;
+            File.Copy($"{pathToCharmContents}/{fbxName}.fbx", $"{pathToUCAbsolute}/{f_FBX}/{fbxName}.fbx", true);
+            AssetDatabase.Refresh();
+            if (GameObject.Find($"{fbxName}(Clone)") != null) DestroyImmediate(GameObject.Find($"{fbxName}(Clone)"));
+            Object toInstantiate = AssetDatabase.LoadAssetAtPath<Object>($"{pathToUCLocal}/{f_FBX}/{fbxName}.fbx");
+            GameObject imported = (GameObject) Instantiate(toInstantiate);
+            imported.transform.rotation = Quaternion.Euler(-90, 0, 0);
+            if(setAsStatic)
+            {
+                imported.isStatic = true;
+                foreach(Transform child in imported.transform.GetComponentsInChildren<Transform>())
+                {
+                    child.gameObject.isStatic = true;
+                }
             }
 
 
+            //Apply translations
+        }
+
+        /// <summary>
+        /// Assumes that objects are in scene already
+        /// </summary>
+        void AssignMaterials()
+        {
+            Debug.Log($"Assigning materials for {importConfig.MeshName}");
+            //Check that the parent gameobject is still there
+            GameObject parent = GameObject.Find($"{importConfig.MeshName}(Clone)");
+            if (parent == null)
+            {
+                Debug.Log("Can't find parent object by name " + importConfig.MeshName);
+            } else
+            {
+                Dictionary<string, string> meshMatPairs = importConfig.Parts;
 
 
+                //if singular
+                if(meshMatPairs.Count == 1)
+                {
+                    Debug.Log("Assigning mats for 1");
+                    string matName = meshMatPairs[parent.name.Replace("(Clone)", "")];
+                    Debug.Log(matName);
+                    parent.GetComponent<MeshRenderer>().material = AssetDatabase.LoadAssetAtPath<Material>($"{pathToUCLocal}/{f_Materials}/{matName}.mat");
+                }
+                //if multiple 
+                else
+                {
+                    Debug.Log("Assigning mats for multiple");
+                    for (int i = 0; i < parent.transform.childCount; i++)
+                    {
+                        GameObject child = parent.transform.GetChild(i).gameObject;
+                        if (meshMatPairs.ContainsKey(child.name))
+                        {
+                            Material matToAssign = AssetDatabase.LoadAssetAtPath<Material>($"{pathToUCLocal}/{f_Materials}/{meshMatPairs[child.name]}.mat");
+                            child.GetComponent<MeshRenderer>().material = matToAssign;
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Assumes that gameobjects are already in scene
+        /// </summary>
+        void CreatePrefab()
+        {
+            GameObject parent = GameObject.Find($"{importConfig.MeshName}(Clone)");
+            PrefabUtility.SaveAsPrefabAsset(parent, $"{pathToUCLocal}/{f_Prefabs}/{importConfig.MeshName}.prefab");
+        }
 
 
+        /// <summary>
+        /// Imports a batch of stuff
+        /// </summary>
+        void Import()
+        {
+            
+
+            
         }
 
         /// <summary>
@@ -212,28 +419,6 @@ namespace CharmToUnityWindow
             }
         }
 
-        void AssignTextures()
-        {
-
-        }
-
-        void CreateShader()
-        {
-            //Material material = new Material();
-            //AssetDatabase.CreateAsset(material, "Assets/MyMaterial.mat");
-            CreateCustomNode();
-
-        }
-
-        void CreateCustomNode()
-        {
-
-        }
-
-        void CreateMaterial()
-        {
-
-        }
 
     }
 

@@ -1,4 +1,4 @@
-Shader "2497AE80"
+Shader "CharmImports/REPLACESHADERNAMEPLEASE"
 {
     Properties
     {
