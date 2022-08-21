@@ -87,6 +87,12 @@ public partial class MapView : UserControl
             fbxHandler.InfoHandler.SetUnrealInteropPath(ConfigHandler.GetUnrealInteropPath());
             AutomatedImporter.SaveInteropUnrealPythonFile(savePath, meshName, AutomatedImporter.EImportType.Map, ConfigHandler.GetOutputTextureFormat(), ConfigHandler.GetSingleFolderMapsEnabled());
         }
+
+        if(ConfigHandler.GetUnityInteropEnabled())
+        {
+            AutomatedImporter.SaveInteropUnityFile(savePath, ConfigHandler.GetUnityInteropPath(), meshName, AutomatedImporter.EImportType.Map, ConfigHandler.GetOutputTextureFormat(), ConfigHandler.GetSingleFolderMapsEnabled());
+        }
+
         if (ConfigHandler.GetBlenderInteropEnabled())
         {
             //Only gonna export a blender py for maps (for now)
