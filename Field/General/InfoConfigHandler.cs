@@ -26,7 +26,7 @@ public class InfoConfigHandler
         bOpen = true;
     }
 
-    ConcurrentDictionary<string, Dictionary<string, List<string>>> lods;
+    Dictionary<string, Dictionary<string, List<string>>> lods = new Dictionary<string, Dictionary<string, List<string>>>();
 
     //stupid stuff relating to lods
     public void AddLod(string meshName, int lodLevel)

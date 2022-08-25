@@ -45,6 +45,18 @@ public class StaticContainer
 
         return outPart;
     }
+
+    public int LODCount(List<Part> parts)
+    {
+        List<int> numLods = new List<int>();
+        foreach(Part part in parts)
+        {
+            if(!numLods.Contains(part.DetailLevel)) {
+                numLods.Add(part.DetailLevel);
+            }
+        }
+        return numLods.Count;
+    }
 }
 
 public struct PartUnmanaged
