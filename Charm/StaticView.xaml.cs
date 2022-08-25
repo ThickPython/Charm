@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using Field.General;
 using Field.Models;
 using Field.Statics;
+using System;
 
 
 namespace Charm;
@@ -43,7 +44,12 @@ public partial class StaticView : UserControl
             savePath += $"/{name}";
         }
         var container = new StaticContainer(new TagHash(hash.Hash));
-        List<Part> parts = container.Load(ELOD.MostDetail);
+
+        //Really shitty workaround to lods that will take a very long time
+        List<Part> parts = container.Load(ELOD.All);
+
+        int LodCount = parts.Count / container.Load(ELOD.MostDetail).Count;
+        
         fbxHandler.AddStaticToScene(parts, meshName);
         Directory.CreateDirectory(savePath);
         if (exportType == EExportTypeFlag.Full)

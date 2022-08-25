@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Xml.Linq;
 using Field.Models;
 using Field.Statics;
 using Field.Textures;
@@ -20,8 +21,29 @@ public class InfoConfigHandler
         _config.TryAdd("Parts", parts);
         ConcurrentDictionary<string, ConcurrentBag<JsonInstance>> instances = new ConcurrentDictionary<string, ConcurrentBag<JsonInstance>>();
         _config.TryAdd("Instances", instances);
+
+
         bOpen = true;
     }
+
+    ConcurrentDictionary<string, Dictionary<string, List<string>>> lods;
+
+    //stupid stuff relating to lods
+    public void AddLod(string meshName, int lodLevel)
+    {
+        string meshGroup = meshName.Split("_")[0];
+        if (!lods.Keys.Contains(meshGroup))
+        {
+            lods[meshGroup] = new Dictionary<string, List<string>>();
+        }
+        if (!lods[meshGroup].Keys.Contains(lodLevel.ToString()))
+        {
+            lods[meshGroup][lodLevel.ToString()] = new List<string>();
+        }
+        lods[meshGroup][lodLevel.ToString()].Add(meshName);
+    }
+
+    public void SubmitLodToConfig() { _config.TryAdd("LodGroups", lods); }
 
     public void Dispose()
     {
@@ -121,6 +143,9 @@ public class InfoConfigHandler
         }
         _config["Materials"][material]["PS"].TryAdd(index, new TexInfo { Hash = texture.Hash, SRGB = texture.IsSrgb()});
     }
+
+    
+    
     
     public void WriteToFile(string path)
     {
@@ -138,7 +163,6 @@ public class InfoConfigHandler
             _config["Parts"] = new ConcurrentDictionary<string, string>();
             _config["Parts"][_config["MeshName"]] = part;
         }
-        
         string s = JsonConvert.SerializeObject(_config, Formatting.Indented);
         if (_config.ContainsKey("MeshName"))
         {

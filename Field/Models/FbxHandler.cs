@@ -3,6 +3,7 @@ using Field.General;
 using Field.Statics;
 using Internal.Fbx;
 using SharpDX;
+using System.Collections.Concurrent;
 
 namespace Field.Models;
 
@@ -60,7 +61,8 @@ public class FbxHandler
         if (InfoHandler != null && part.Material != null) // todo consider why some materials are null
         {
             InfoHandler.AddMaterial(part.Material);
-            InfoHandler.AddPart(part, node.GetName());   
+            InfoHandler.AddPart(part, node.GetName());
+            InfoHandler.AddLod(node.GetName(), part.DetailLevel);
         }
 
 
@@ -367,11 +369,12 @@ public class FbxHandler
 
     public void AddStaticToScene(List<Part> parts, string meshName)
     {
-        for( int i = 0; i < parts.Count; i++)
+        for ( int i = 0; i < parts.Count; i++)
         {
             Part part = parts[i];
             AddMeshPartToScene(part, i, meshName);
         }
+        InfoHandler.SubmitLodToConfig();
     }
 
     public void Clear()
