@@ -51,10 +51,11 @@ public partial class StaticView : UserControl
         }
         var container = new StaticContainer(new TagHash(hash.Hash));
 
-        //Really shitty workaround to lods that will take a very long time
-        List<Part> parts = container.Load(ELOD.All);
+        //get the lod type
+        ELOD lodLevel = ConfigHandler.GetUnityLodEnabled() == true ? ELOD.All : ELOD.MostDetail;
 
-        int LodCount = parts.Count / container.Load(ELOD.MostDetail).Count;
+        List<Part> parts = container.Load(lodLevel);
+
         
         fbxHandler.AddStaticToScene(parts, meshName);
         Directory.CreateDirectory(savePath);
@@ -131,5 +132,10 @@ public partial class StaticView : UserControl
             displayParts.Add(displayPart);
         }
         return displayParts;
+    }
+
+    private void ModelView_Loaded(object sender, RoutedEventArgs e)
+    {
+
     }
 }

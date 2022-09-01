@@ -48,6 +48,15 @@ public partial class UnityConfigView : UserControl
         lbl2.Text = "MUST be inside Unity assets folder";
         lbl2.FontSize = 15;
         UnityConfigPanel.Children.Add(lbl2);
+
+        //enable lods
+        ConfigSettingControl cul = new ConfigSettingControl();
+        cul.SettingName = "Enable Unity Lods";
+        bool bval3 = ConfigHandler.GetUnityLodEnabled();
+        cul.SettingValue = bval2.ToString();
+        cul.ChangeButton.Click += UnityLod_OnClick;
+        UnityConfigPanel.Children.Add(cul);
+
     }
 
     private List<ComboBoxItem> MakeEnumComboBoxItems<T>() where T : Enum
@@ -74,6 +83,12 @@ public partial class UnityConfigView : UserControl
         ConfigHandler.OpenUnityInteropPathDialog();
         PopulateConfigPanel();
         ConsiderShowingMainMenu();
+    }
+
+    private void UnityLod_OnClick(object sender, RoutedEventArgs e)
+    {
+        ConfigHandler.SetUnityLodEnabled(!ConfigHandler.GetUnityInteropEnabled() && ConfigHandler.GetUnityInteropEnabled());
+        PopulateConfigPanel();
     }
 
     private void ExportSavePath_OnClick(object sender, RoutedEventArgs e)

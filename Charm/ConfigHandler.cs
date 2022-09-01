@@ -427,6 +427,32 @@ public class ConfigHandler
 
     #endregion
 
+    #region unity Lod Enabled
+    public static void SetUnityLodEnabled(bool bUnityLodEnabled)
+    {
+        if (_config.AppSettings.Settings["unityLodEnabled"] == null)
+        {
+            _config.AppSettings.Settings.Add("unityLodEnabled", bUnityLodEnabled.ToString());
+        }
+        else
+        {
+            _config.AppSettings.Settings["unityLodEnabled"].Value = bUnityLodEnabled.ToString();
+        }
+
+        Save();
+    }
+
+    public static bool GetUnityLodEnabled()
+    {
+        if (_config.AppSettings.Settings["unityLodEnabled"] == null)
+        {
+            return false;
+        }
+        return _config.AppSettings.Settings["unityLodEnabled"].Value == "True";
+    }
+
+    #endregion
+
     #region blenderInteropEnabled
 
     public static void SetBlenderInteropEnabled(bool bBlenderInteropEnabled)
