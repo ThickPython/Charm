@@ -42,6 +42,11 @@ public partial class ConfigView : UserControl
             MainWindow.Progress.CompleteStage();
             Dispatcher.Invoke(() =>
             {
+                UnityControl.OnControlLoaded(null, null);
+            });
+            MainWindow.Progress.CompleteStage();
+            Dispatcher.Invoke(() =>
+            {
                 UnrealControl.OnControlLoaded(null, null);
             });
             MainWindow.Progress.CompleteStage();

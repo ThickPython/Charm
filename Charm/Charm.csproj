@@ -52,6 +52,9 @@
         <Generator>MSBuild:Compile</Generator>
         <DependentUpon>ActivityView.xaml</DependentUpon>
       </Page>
+      <Page Update="Source2ConfigView - Copy.xaml">
+        <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      </Page>
       <Page Update="TagListView.xaml">
         <Generator>MSBuild:Compile</Generator>
         <DependentUpon>TagListViewerView.xaml</DependentUpon>

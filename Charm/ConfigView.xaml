@@ -14,9 +14,13 @@
             <TabItem Header="SOURCE 2" x:Name="Source2Tab">
                 <local:Source2ConfigView x:Name="Source2Control"/>
             </TabItem>
+            <TabItem Header="UNITY" x:Name= "UnityTab">
+                <local:UnityConfigView x:Name="UnityControl"/>
+            </TabItem>
             <TabItem Header="UNREAL ENGINE" x:Name="UnrealTab">
                 <local:UnrealConfigView x:Name="UnrealControl"/>
             </TabItem>
+            
             
         </TabControl>
     </Grid>
