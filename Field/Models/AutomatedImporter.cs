@@ -46,7 +46,7 @@ public class AutomatedImporter
     public static void SaveInteropUnityFile(string saveDirectory, string unityDirectory, string meshName, bool enableLods, EImportType importType, ETextureFormat textureFormat, bool bSingleFolder = true)
     {
         //Copy and rename file and class (lul unity no script support)
-        File.Copy("../../../../../Field/UnityImportThings/charm_to_unity.txt", $"{unityDirectory}/{meshName}_charm_to_unity.cs", true);
+        File.Copy("UnityImportThings/charm_to_unity.txt", $"{unityDirectory}/{meshName}_charm_to_unity.cs", true);
 
         //Change class name
         string text = File.ReadAllText($"{unityDirectory}/{meshName}_charm_to_unity.cs");
