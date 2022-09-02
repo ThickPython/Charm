@@ -1,12 +1,9 @@
 using UnityEditor;
 using UnityEngine;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Web;
 using Newtonsoft.Json;
-
 
 namespace CharmToUnityWindow
 {
@@ -20,17 +17,28 @@ namespace CharmToUnityWindow
         //Path to unity contents where stuff gets checked
         string pathToUCAbsolute = @"replacePathToUCAbsolute";
         //path to unity contents but localized to the projects folder
-        string pathToUCLocal = "";
+        string pathToUCLocal = @"";
 
         //Whether to assign static to all
         bool setAsStatic = true;
 
-        //whether to treat it as a map import
-        bool importAsMap = false;
+        //whether to delete prefabs after importing and instantiating
+        bool deleteAfterMakingPrefabs = false;
+
+        //create backup shadergraphs for each material just in case the default fails
+        bool createBackupShadergraph = false;
+
+        //create lod groups
+        bool createLodGroups = false;
+        float objectSizeMultiplier = 5;
+
+
+        public string[] options = new string[] { "Single static", "Multi static or Map" };
+        public int importType = 0;
 
         //folders 
         string f_Textures = "Textures";
-        string f_Shaders = "Shaders";
+        string f_SGBackup = "BackupShadergraph";
         string f_CustomHLSL = "HLSLs";
         string f_Materials = "Materials";
         string f_Prefabs = "Prefabs";
@@ -64,14 +72,19 @@ namespace CharmToUnityWindow
             pathToUCAbsolute = EditorGUILayout.TextField("Absolute path to Unity contents", pathToUCAbsolute);
             pathToCharmContents = EditorGUILayout.TextField("Absolute path to Charm output", pathToCharmContents);
             textureType = EditorGUILayout.TextField("Texture type extention", textureType);
-            setAsStatic = EditorGUILayout.Toggle("Set imports as static?", setAsStatic);
-            importAsMap = EditorGUILayout.Toggle("This is a map import", importAsMap);
+            EditorGUILayout.Space();
+            importType = EditorGUILayout.Popup(importType, options);
+            setAsStatic = EditorGUILayout.Toggle("Set imports as static", setAsStatic);
+            deleteAfterMakingPrefabs = EditorGUILayout.Toggle("Delete after import", deleteAfterMakingPrefabs);
+            createLodGroups = EditorGUILayout.Toggle("Create lod groups", createLodGroups);
+            objectSizeMultiplier = EditorGUILayout.FloatField("Set lod size (reinstantiate)", objectSizeMultiplier);
+            //createBackupShadergraph = EditorGUILayout.Toggle("Create backup Shadergraph", createBackupShadergraph);
             EditorGUILayout.Space();
 
 
             GUILayout.Label("Folder names for certain things", EditorStyles.boldLabel);
             f_Textures = EditorGUILayout.TextField("Textures", f_Textures);
-            f_Shaders = EditorGUILayout.TextField("Shaders (has shader graphs)", f_Shaders);
+            f_SGBackup = EditorGUILayout.TextField("Shaders (has shader graphs)", f_SGBackup);
             f_CustomHLSL = EditorGUILayout.TextField("HLSL (has code for custom nodes)", f_CustomHLSL);
             f_Materials = EditorGUILayout.TextField("Materials", f_Materials);
             f_Prefabs = EditorGUILayout.TextField("Prefabs", f_Prefabs);
@@ -82,13 +95,13 @@ namespace CharmToUnityWindow
             if(GUILayout.Button("Import materials"))
             {
                 PrelimCheckAndSetup();
-                ImportMaterials();
+                ImportMaterialsNew();
             }
 
             if (GUILayout.Button("Import meshes"))
             {
                 PrelimCheckAndSetup();
-                Import_Entity();
+                Import_Mesh();
             }
 
             if(GUILayout.Button("Assign materials"))
@@ -102,28 +115,25 @@ namespace CharmToUnityWindow
                 PrelimCheckAndSetup();
                 CreatePrefab();
             }
+
+            if(GUILayout.Button("Create instances"))
+            {
+                PrelimCheckAndSetup();
+                CreatePrefabInstances();
+            }
             EditorGUILayout.Space();
 
 
             if (GUILayout.Button("Import everything (do everything above)"))
             {
-                foreach(string path in Directory.GetFiles(pathToCharmContents))
-                {
-                    if(path.Split("_").Last<string>() == "info.cfg")
-                    {
-                        string batchHash = path.Split('\\').Last();
-                        string deserialized = string.Join("\n", File.ReadAllLines($"{pathToCharmContents}/{batchHash}"));
-                        importConfig = JsonConvert.DeserializeObject<ImportConfig>(deserialized);
-
-                        PrelimCheckAndSetup(false);
-                        ImportMaterialsTest();
-                        Import_Entity();
-                        AssignMaterials();
-                        CreatePrefab();
-                    }
-                }
-                
+                PrelimCheckAndSetup();
+                ImportMaterialsNew();
+                Import_Mesh();
+                AssignMaterials();
+                CreatePrefab();
+                CreatePrefabInstances();
             }
+
             
         }
 
@@ -133,10 +143,10 @@ namespace CharmToUnityWindow
         }
 
         ImportConfig importConfig;
-
+        List<ImportConfig> importConfigs;
 
         //Adds the necessary folders if they don't exist yet
-        void PrelimCheckAndSetup(bool getCfgDefault = true)
+        void PrelimCheckAndSetup()
         {
             //Check/Create materials
             if (!Directory.Exists(pathToUCAbsolute + $"/{f_Materials}"))
@@ -147,9 +157,9 @@ namespace CharmToUnityWindow
             {
                 Directory.CreateDirectory(pathToUCAbsolute + $"/{f_Textures}");
             }
-            if (!Directory.Exists(pathToUCAbsolute + $"/{f_Shaders}"))
+            if (!Directory.Exists(pathToUCAbsolute + $"/{f_SGBackup}"))
             {
-                Directory.CreateDirectory(pathToUCAbsolute + $"/{f_Shaders}");
+                Directory.CreateDirectory(pathToUCAbsolute + $"/{f_SGBackup}");
             }
             if (!Directory.Exists(pathToUCAbsolute + $"/{f_CustomHLSL}"))
             {
@@ -163,180 +173,154 @@ namespace CharmToUnityWindow
             {
                 Directory.CreateDirectory(pathToUCAbsolute + $"/{f_Prefabs}");
             }
-
-
-            //if map rip then don't do this
-            if(getCfgDefault)
-            {
-                string batchHash = pathToCharmContents.Split('/').Last();
-                string deserialized = string.Join("\n", File.ReadAllLines($"{pathToCharmContents}/{batchHash}_info.cfg"));
-                importConfig = JsonConvert.DeserializeObject<ImportConfig>(deserialized);
-            }
-            
         }
 
-        
 
-        void ImportMaterials()
+        void SetImportConfigs()
         {
-            foreach (var newShader in importConfig.Materials.Keys)
+            importConfigs = new List<ImportConfig>();
+            foreach(string path in Directory.GetFiles($"{pathToCharmContents}", "*.cfg"))
             {
-                Debug.Log($"Importing material with name [{newShader}]");
-                //Create shader
-                Debug.Log("Creating the shader by name " + newShader);
-                File.Copy(pathToUCAbsolute + @"\C2Utemplate.shadergraph", pathToUCAbsolute + $"/Shaders/{newShader}.shadergraph", true);
-                AssetDatabase.Refresh();
-
-                //Create material
-                Material mat;
-                Shader toAssign = AssetDatabase.LoadAssetAtPath<Shader>(pathToUCLocal + $"/Shaders/{newShader}.shadergraph");
-
-                //Use material if it already exists
-                if (File.Exists(pathToUCAbsolute + $"{f_Materials}/{newShader}.mat"))
-                {
-                    Debug.Log($"{newShader} mat already exists! Using that instead");
-                    mat = AssetDatabase.LoadAssetAtPath<Material>(pathToUCLocal + $"{f_Materials}/{newShader}.mat");
-                    mat.shader = toAssign;
-                }
-                else
-                {
-                    Debug.Log("Creating the material by same name " + newShader);
-                    //Create new material
-                    mat = new Material(toAssign);
-                    mat.name = newShader;
-                    AssetDatabase.CreateAsset(mat, pathToUCLocal + $"/{f_Materials}/{newShader}.mat");
-                }
-
-                //Assign textures to material
-
-                //Create folder for this mats textures
-                if (!Directory.Exists(pathToUCAbsolute + $"/{f_Textures}/{newShader}"))
-                {
-                    Directory.CreateDirectory(pathToUCAbsolute + $"/{f_Textures}/{newShader}");
-                }
-
-                Debug.Log($"Creating materials for [{newShader}]");
-                //import all of the textures for this material to the textures folder then assign them
-                Dictionary<string, TexInfo> texturesObj = importConfig.Materials[newShader]["PS"];
-                for (int i = 0; i < texturesObj.Count; i++)
-                {
-                    //get absolute path to texture
-                    string textureName = $"PS_{texturesObj.ElementAt(i).Key}_" + texturesObj[texturesObj.ElementAt(i).Key].Hash + textureType;
-                    string path = pathToCharmContents + "/Textures/" + textureName;
-                    File.Copy(path, pathToUCAbsolute + $"/{f_Textures}/{newShader}/{textureName}", true);
-
-                    AssetDatabase.Refresh();
-
-                    //assign textures to mat
-                    Texture2D toSet = AssetDatabase.LoadAssetAtPath<Texture2D>(pathToUCLocal + $"/{f_Textures}/{newShader}/{textureName}");
-                    Debug.Log(toSet.name);
-                    mat.SetTexture($"_t_{i}", toSet);
-                }
-
-                //Copy shaders from charm
-                if (File.Exists($"{pathToCharmContents}/Shaders/PS_{newShader}.hlsl"))
-                {
-                    File.Copy($"{pathToCharmContents}/Shaders/PS_{newShader}.hlsl", $"{pathToUCAbsolute}/{f_CustomHLSL}/{newShader}.hlsl", true);
-                }
+                string deserialized = string.Join("\n", File.ReadAllLines(path));
+                importConfigs.Add(JsonConvert.DeserializeObject<ImportConfig>(deserialized));
             }
         }
-        void ImportMaterialsTest()
-        {
-            foreach (var newShader in importConfig.Materials.Keys)
-            {
-                Debug.Log($"Importing material with name [{newShader}]");
-                //Create shader
-                Debug.Log("Creating the shader by name " + newShader);
-                //File.Copy(pathToUCAbsolute + @"\C2Utemplate.shadergraph", pathToUCAbsolute + $"/Shaders/{newShader}.shadergraph", true);
-                AssetDatabase.Refresh();
 
-                //Create material
-                Material mat;
-                Shader toAssign;
-                //Copy shaders from charm
-                if (File.Exists($"{pathToCharmContents}/Shaders/PS_{newShader}.hlsl"))
+        void ImportMaterialsNew()
+        {
+            SetImportConfigs();
+
+            foreach (ImportConfig impConf in importConfigs)
+            {
+                //import all of the necessary files FIRST (so you don't asset database refresh so much)
+                foreach(string newShader in impConf.Materials.Keys.ToArray())
                 {
+                    //deal with shaders
+                    Debug.Log($"Importing and creating shaders for material [{newShader}]");                    
+                    
+                    bool shaderExists = true; //does the shader exist in the folder? sometimes the folder simply does not have the shader
+
                     //copy the hlsl
-                    File.Copy($"{pathToCharmContents}/Shaders/PS_{newShader}.hlsl", $"{pathToUCAbsolute}/{f_CustomHLSL}/{newShader}.hlsl", true);
+                    try
+                    {
+                        File.Copy($"{pathToCharmContents}/Shaders/PS_{newShader}.hlsl", $"{pathToUCAbsolute}/{f_CustomHLSL}/{newShader}.hlsl", true);
+                    }
+                    catch (IOException)
+                    {
+                        Debug.Log($"Could not find shader file {newShader}.hlsl, skipping textures for this");
+                        shaderExists = false;
+                    }
+                    
+                    if(shaderExists)
+                    {
+                        //create new compiled shader from template
+                        string newCompiled = string.Join("\n", File.ReadAllLines($"{pathToUCAbsolute}/SHADERTEMPLATENEW.txt"));
+                        newCompiled = newCompiled.Replace("REPLACEMEWITHPATHTOSHADER", $"{pathToUCLocal}/{f_CustomHLSL}/{newShader}.hlsl");
+                        newCompiled = newCompiled.Replace("REPLACESHADERNAMEPLEASE", $"{newShader}_Compiled");
+                        File.WriteAllText($"{pathToUCAbsolute}/{f_CustomHLSL}/{newShader}_COMPILED.shader", newCompiled);
 
-                    //create new shader from template
-                    string newCompiled = string.Join("\n", File.ReadAllLines($"{pathToUCAbsolute}/SHADERTEMPLATENEW.txt"));
-                    newCompiled = newCompiled.Replace("REPLACEMEWITHPATHTOSHADER", $"{pathToUCLocal}/{f_CustomHLSL}/{newShader}.hlsl");
-                    newCompiled = newCompiled.Replace("REPLACESHADERNAMEPLEASE", $"{newShader}_Compiled");
-                    File.WriteAllText($"{pathToUCAbsolute}/{f_CustomHLSL}/{newShader}_COMPILED.shader", newCompiled);
-                    AssetDatabase.Refresh();
-                    toAssign = AssetDatabase.LoadAssetAtPath<Shader>($"{pathToUCLocal}/{f_CustomHLSL}/{newShader}_COMPILED.shader");
-                } else
-                {
-                    toAssign = Shader.Find("HDRP/Lit");
-                }
+                        //Create folder for this mats textures if it doesn't already exist
+                        if (!Directory.Exists(pathToUCAbsolute + $"/{f_Textures}/{newShader}"))
+                        {
+                            Directory.CreateDirectory(pathToUCAbsolute + $"/{f_Textures}/{newShader}");
+                        }
 
-                //Use material if it already exists
-                if (File.Exists(pathToUCAbsolute + $"{f_Materials}/{newShader}.mat"))
-                {
-                    Debug.Log($"{newShader} mat already exists! Using that instead");
-                    mat = AssetDatabase.LoadAssetAtPath<Material>(pathToUCLocal + $"{f_Materials}/{newShader}.mat");
-                    mat.shader = toAssign;
-                }
-                else
-                {
-                    Debug.Log("Creating the material by same name " + newShader);
-                    //Create new material
-                    mat = new Material(toAssign);
-                    mat.name = newShader;
-                    AssetDatabase.CreateAsset(mat, pathToUCLocal + $"/{f_Materials}/{newShader}.mat");
-                }
+                        //deal with textures
+                        Debug.Log($"Importing textures for [{newShader}]");
+                        //import all of the textures for this material to the textures folder then assign them
+                        Dictionary<string, TexInfo> texturesObj = impConf.Materials[newShader]["PS"];
+                        for (int i = 0; i < texturesObj.Count; i++)
+                        {
+                            //get absolute path to texture
+                            string textureName = $"PS_{texturesObj.ElementAt(i).Key}_" + texturesObj[texturesObj.ElementAt(i).Key].Hash + textureType;
+                            string path = pathToCharmContents + "/Textures/" + textureName;
+                            File.Copy(path, pathToUCAbsolute + $"/{f_Textures}/{newShader}/{textureName}", true);
+                        }
 
-                //Assign textures to material
 
-                //Create folder for this mats textures
-                if (!Directory.Exists(pathToUCAbsolute + $"/{f_Textures}/{newShader}"))
-                {
-                    Directory.CreateDirectory(pathToUCAbsolute + $"/{f_Textures}/{newShader}");
-                }
-
-                Debug.Log($"Creating materials for [{newShader}]");
-                //import all of the textures for this material to the textures folder then assign them
-                Dictionary<string, TexInfo> texturesObj = importConfig.Materials[newShader]["PS"];
-                for (int i = 0; i < texturesObj.Count; i++)
-                {
-                    //get absolute path to texture
-                    string textureName = $"PS_{texturesObj.ElementAt(i).Key}_" + texturesObj[texturesObj.ElementAt(i).Key].Hash + textureType;
-                    string path = pathToCharmContents + "/Textures/" + textureName;
-                    File.Copy(path, pathToUCAbsolute + $"/{f_Textures}/{newShader}/{textureName}", true);
+                        //create a backup shader graph for manual editing if enabled
+                        if(createBackupShadergraph)
+                        {
+                            File.Copy($"{pathToUCAbsolute}/C2Utemplate.shadergraph", $"{pathToUCAbsolute}/{f_SGBackup}/{newShader}_SG.shadergraph");
+                        }
+                    }
+                    
 
                     AssetDatabase.Refresh();
 
-                    //assign textures to mat
-                    Texture2D toSet = AssetDatabase.LoadAssetAtPath<Texture2D>(pathToUCLocal + $"/{f_Textures}/{newShader}/{textureName}");
-                    Debug.Log(toSet.name);
-                    mat.SetTexture($"_t_{i}", toSet);
-                }
+                    //NOW create the material
+                    Shader toAssign = AssetDatabase.LoadAssetAtPath<Shader>($"{pathToUCLocal}/{f_CustomHLSL}/{newShader}_COMPILED.shader");
+                    if (toAssign == null) toAssign = Shader.Find("HDRP/Lit");
+                    Material mat;
+                    bool matExists;
 
-                
+                    //Use material if it already exists
+                    if (File.Exists(pathToUCAbsolute + $"{f_Materials}/{newShader}.mat"))
+                    {
+                        matExists = true;
+                        Debug.Log($"{newShader} mat already exists! Using that instead");
+                        mat = AssetDatabase.LoadAssetAtPath<Material>(pathToUCLocal + $"{f_Materials}/{newShader}.mat");
+                        mat.shader = toAssign;
+                    }
+                    else
+                    {
+                        matExists = false;
+                        Debug.Log("Creating the material by same name " + newShader);
+                        //Create new material
+                        mat = new Material(toAssign);
+                        mat.name = newShader;
+                    }
+
+                    if(shaderExists)
+                    {
+                        Dictionary<string, TexInfo> texturesObj = impConf.Materials[newShader]["PS"];
+                        //assign textures
+                        for (int i = 0; i< texturesObj.Count; i++)
+                        {
+                            string textureName = $"PS_{texturesObj.ElementAt(i).Key}_" + texturesObj[texturesObj.ElementAt(i).Key].Hash + textureType;
+                            //assign textures to mat
+                            Texture2D toSet = AssetDatabase.LoadAssetAtPath<Texture2D>(pathToUCLocal + $"/{f_Textures}/{newShader}/{textureName}");
+                            Debug.Log(toSet.name);
+                            mat.SetTexture($"_t_{i}", toSet);
+                        }
+                    }
+                    
+
+                    //save material as asset if it didn't already exist
+                    if(!matExists) AssetDatabase.CreateAsset(mat, pathToUCLocal + $"/{f_Materials}/{newShader}.mat");
+                }   
             }
+            Debug.Log("Finished importing all materials!");
         }
-        void Import_Entity()
+        void Import_Mesh()
         {
-            Debug.Log($"Importing meshes for {importConfig.MeshName}");
-            string fbxName = importConfig.MeshName ;
-            File.Copy($"{pathToCharmContents}/{fbxName}.fbx", $"{pathToUCAbsolute}/{f_FBX}/{fbxName}.fbx", true);
-            AssetDatabase.Refresh();
-            if (GameObject.Find($"{fbxName}(Clone)") != null) DestroyImmediate(GameObject.Find($"{fbxName}(Clone)"));
-            Object toInstantiate = AssetDatabase.LoadAssetAtPath<Object>($"{pathToUCLocal}/{f_FBX}/{fbxName}.fbx");
-            GameObject imported = (GameObject) Instantiate(toInstantiate);
-            imported.transform.rotation = Quaternion.Euler(-90, 0, 0);
-            if(setAsStatic)
+            SetImportConfigs();
+
+            foreach(ImportConfig impConf in importConfigs)
             {
-                imported.isStatic = true;
-                foreach(Transform child in imported.transform.GetComponentsInChildren<Transform>())
+                string fbxName = impConf.MeshName;
+
+                File.Copy($"{pathToCharmContents}/{fbxName}.fbx", $"{pathToUCAbsolute}/{f_FBX}/{fbxName}.fbx", true);
+                AssetDatabase.Refresh();
+                if (GameObject.Find($"{fbxName}(Clone)") != null) DestroyImmediate(GameObject.Find($"{fbxName}(Clone)"));
+                UnityEngine.Object toInstantiate = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>($"{pathToUCLocal}/{f_FBX}/{fbxName}.fbx");
+                GameObject imported = (GameObject)Instantiate(toInstantiate);
+                imported.name = imported.name.Replace("(Clone)", "");
+
+                //set new parent if singular because otherwise the parent object will have the mesh and that's cringe
+                if (impConf.Materials.Keys.ToArray().Length == 1)
                 {
-                    child.gameObject.isStatic = true;
+                    Debug.Log("Singular part, creating new parent");
+                    GameObject newParent = new GameObject(@"newParentVeryTemporary");
+                    imported.transform.SetParent(newParent.transform);
+                    imported = newParent;
+                    imported.name = $"{impConf.MeshName}";
                 }
+
+                //rotate because unity
+                //imported.transform.rotation = Quaternion.Euler(-90, 0, 0);
             }
-
-
-            //Apply translations
+            Debug.Log("Finished importing meshes!");
         }
 
         /// <summary>
@@ -344,40 +328,49 @@ namespace CharmToUnityWindow
         /// </summary>
         void AssignMaterials()
         {
-            Debug.Log($"Assigning materials for {importConfig.MeshName}");
-            //Check that the parent gameobject is still there
-            GameObject parent = GameObject.Find($"{importConfig.MeshName}(Clone)");
-            if (parent == null)
+            SetImportConfigs();
+            foreach(ImportConfig impConf in importConfigs)
             {
-                Debug.Log("Can't find parent object by name " + importConfig.MeshName);
-            } else
-            {
-                Dictionary<string, string> meshMatPairs = importConfig.Parts;
+                Debug.Log($"Assigning materials for {impConf.MeshName}");
+                //Check that the parent gameobject is still there
+                GameObject parent = GameObject.Find($"{impConf.MeshName}");
 
-
-                //if singular
-                if(meshMatPairs.Count == 1)
+                //just in case if same parent and child
+                parent = parent.transform.root.gameObject;
+                if (parent == null)
                 {
-                    Debug.Log("Assigning mats for 1");
-                    string matName = meshMatPairs[parent.name.Replace("(Clone)", "")];
-                    Debug.Log(matName);
-                    parent.GetComponent<MeshRenderer>().material = AssetDatabase.LoadAssetAtPath<Material>($"{pathToUCLocal}/{f_Materials}/{matName}.mat");
+                    Debug.Log("Can't find parent object by name " + impConf.MeshName);
                 }
-                //if multiple 
                 else
                 {
-                    Debug.Log("Assigning mats for multiple");
+                    Dictionary<string, string> meshMatPairs = impConf.Parts;
                     for (int i = 0; i < parent.transform.childCount; i++)
                     {
                         GameObject child = parent.transform.GetChild(i).gameObject;
                         if (meshMatPairs.ContainsKey(child.name))
                         {
-                            Material matToAssign = AssetDatabase.LoadAssetAtPath<Material>($"{pathToUCLocal}/{f_Materials}/{meshMatPairs[child.name]}.mat");
+                            Material matToAssign;
+                            //if emission shader
+                            if(meshMatPairs[child.name] == "FFFFFFFF")
+                            {
+                                AssetDatabase.CopyAsset($"{pathToUCLocal}/BlankEmissionTemplate.mat", $"{pathToUCLocal}/{f_Materials}/{child.name}_Emission.mat");
+                                //File.Copy($"{pathToUCAbsolute}/BlankEmissionTemplate.mat", $"{pathToUCAbsolute}/{f_Materials}/{child.name}_Emission.mat", true);
+                                matToAssign = AssetDatabase.LoadAssetAtPath<Material>($"{pathToUCLocal}/{f_Materials}/{child.name}_Emission.mat");
+                                
+                            } 
+                            //any other shader
+                            else
+                            {
+                                matToAssign = AssetDatabase.LoadAssetAtPath<Material>($"{pathToUCLocal}/{f_Materials}/{meshMatPairs[child.name]}.mat");
+                            }
                             child.GetComponent<MeshRenderer>().material = matToAssign;
                         }
                     }
                 }
             }
+
+
+            
         }
 
         /// <summary>
@@ -385,56 +378,220 @@ namespace CharmToUnityWindow
         /// </summary>
         void CreatePrefab()
         {
-            GameObject parent = GameObject.Find($"{importConfig.MeshName}(Clone)");
-            PrefabUtility.SaveAsPrefabAsset(parent, $"{pathToUCLocal}/{f_Prefabs}/{importConfig.MeshName}.prefab");
+            SetImportConfigs();
+
+            if(importType == 0)
+            {
+                foreach (ImportConfig impConf in importConfigs)
+                {
+                    GameObject parent = GameObject.Find($"{impConf.MeshName}");
+                    CreateLods(parent, impConf);
+                    SetStatic(parent);
+                    if (parent == null)
+                    {
+                        Debug.Log($"Could not find parent gameobject by name {impConf.MeshName}");
+                    }
+                    else
+                    {
+                        Debug.Log($"Creating prefab with name ${impConf.MeshName}");
+                        PrefabUtility.SaveAsPrefabAsset(parent, $"{pathToUCLocal}/{f_Prefabs}/{impConf.MeshName}.prefab");
+                    }
+                    if (deleteAfterMakingPrefabs) DestroyImmediate(parent);
+                }
+            } else if(importType == 1)
+            {
+                foreach(ImportConfig impConf in importConfigs)
+                {
+                    GameObject parent = GameObject.Find($"{impConf.MeshName}");
+                    //create list of part names and children
+                    Dictionary<string, List<Transform>> parentsAndKids = new Dictionary<string, List<Transform>>();
+                    for(int i = 0; i < parent.transform.childCount; i++)
+                    {
+                        Transform child = parent.transform.GetChild(i);
+                        string childName = child.name.Split("_")[0];
+                        if(!parentsAndKids.Keys.Contains<string>(childName))
+                        {
+                            parentsAndKids[childName] = new List<Transform>();
+                        }
+                        parentsAndKids[child.name.Split("_")[0]].Add(child);
+                    }
+
+                    //create folder for map prefabs
+                    if (!Directory.Exists($"{pathToUCAbsolute}/{f_Prefabs}/MapMulti_{impConf.MeshName}"))
+                    {
+                        Directory.CreateDirectory($"{pathToUCAbsolute}/{f_Prefabs}/MapMulti_{impConf.MeshName}");
+                    }
+                    AssetDatabase.Refresh();
+
+                    //assemble the prefabs with new parents
+                    foreach(string prefabName in parentsAndKids.Keys.ToArray())
+                    {
+                        GameObject newPrefab = new GameObject(prefabName);
+                        foreach(Transform child in parentsAndKids[prefabName])
+                        {
+                            child.transform.SetParent(newPrefab.transform);
+                        }
+
+                        CreateLods(newPrefab, impConf);
+                        SetStatic(newPrefab);
+
+                        PrefabUtility.SaveAsPrefabAsset(newPrefab, $"{pathToUCLocal}/{f_Prefabs}/MapMulti_{impConf.MeshName}/{prefabName}.prefab");
+                        if (deleteAfterMakingPrefabs) DestroyImmediate(newPrefab);
+                    }
+
+                    if (deleteAfterMakingPrefabs) DestroyImmediate(parent);
+                }
+            }
+            
         }
 
-
-        /// <summary>
-        /// Imports a batch of stuff
-        /// </summary>
-        void Import()
+        void CreateLods(GameObject parent, ImportConfig impConf)
         {
-            
+            //Create lods if needed
+            if (createLodGroups)
+            {
+                Debug.Log(parent.name);
+                LODGroup lodGroup = parent.AddComponent<LODGroup>();
+                lodGroup.fadeMode = LODFadeMode.CrossFade;
+                lodGroup.animateCrossFading = true;
 
-            
+                //Create lods
+                Dictionary<string, List<string>> lodGroupData = impConf.LodGroups[parent.name];
+                List<string> lodKeysUnordered = lodGroupData.Keys.ToArray().ToList();
+                LOD[] lods = new LOD[lodGroupData.Keys.Count];
+                for (int i = 0; i < lods.Length; i++)
+                {
+                    string lodKey = nextKey(ref lodKeysUnordered);
+                    Renderer[] renderers = new Renderer[lodGroupData[lodKey].Count];
+                    for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+                    {
+                        renderers[rendererIndex] = parent.transform.Find(lodGroupData[lodKey][rendererIndex]).GetComponent<MeshRenderer>();
+                    }
+                    lods[i] = new LOD(1.0F / (5 + float.Parse(lodKey)), renderers);
+                }
+                lodGroup.SetLODs(lods);
+            }
+        }
+        void SetStatic(GameObject parent)
+        {
+            if(setAsStatic)
+            {
+                parent.isStatic = true;
+                foreach (Transform child in parent.transform.GetComponentsInChildren<Transform>())
+                {
+                    child.gameObject.isStatic = true;
+                }
+            }
         }
 
         /// <summary>
-        /// Copies file from pathFrom to pathTo while keeping in mind whether it exists or not
+        /// returns the lowest "key" in the array and then deletes it
         /// </summary>
-        /// <param name="pathFrom"></param>
-        /// <param name="pathTo"></param>
+        /// <param name="keysRemaining"></param>
         /// <returns></returns>
-        void FileCopyWithoutCringe(string pathFrom, string pathTo)
+        string nextKey(ref List<string> keysRemaining)
         {
-            if (File.Exists(pathTo))
+            string lowest = keysRemaining[0];
+            foreach(string key in keysRemaining)
             {
-                Debug.Log($"Path at {pathTo} already exists dumbo fumbo");
+                if(int.Parse(key) < int.Parse(lowest))
+                {
+                    lowest = key;
+                }
             }
-            else
+            keysRemaining.Remove(lowest);
+            return lowest;
+        }
+        void CreatePrefabInstances()
+        {
+            if (importType == 1)
             {
-                File.Copy(pathFrom, pathTo);
-                Debug.Log($"Successfully copied to {pathTo}");
+                SetImportConfigs();
+                foreach (ImportConfig impconf in importConfigs)
+                {
+                    //create parent
+                    GameObject parent = new GameObject(impconf.MeshName);
+                    parent.transform.position = Vector3.zero;
+                    foreach(string staticPrefab in impconf.Instances.Keys.ToArray())
+                    {
+                        //Debug.Log($"Creating instances of {staticPrefab}");
+
+
+                        GameObject toInstantiate = AssetDatabase.LoadAssetAtPath<GameObject>($"{pathToUCLocal}/{f_Prefabs}/MapMulti_{impconf.MeshName}/{staticPrefab}.prefab");
+                        if(toInstantiate != null)
+                        {
+                            foreach (InstanceInfo instanceInfo in impconf.Instances[staticPrefab])
+                            {
+                                Transform Instantiated = ((GameObject) PrefabUtility.InstantiatePrefab(toInstantiate, parent.transform)).transform;
+                                Vector3 position = instanceInfo.vec3Translation();
+                                position.x = position.x * -1;
+                                position.y = position.y * -1;
+                                position.z = position.z * -1;
+                                Instantiated.position = position;
+                                Vector3 rotation = instanceInfo.quatRotation().eulerAngles;
+                                rotation.x += 180;
+                                rotation.z *= -1;
+                                Instantiated.rotation = Quaternion.Euler(rotation);
+                                Instantiated.localScale = Vector3.one * 100 * instanceInfo.floatScale();
+
+                                for (int i = 0; i < Instantiated.transform.childCount; i++)
+                                {
+                                    Instantiated.transform.GetChild(i).localRotation = Quaternion.Euler(new Vector3(0, 0, 0));
+                                }
+                                //Lod stuff if doing lod stuff
+                                if (createLodGroups)
+                                {
+                                    Instantiated.GetComponent<LODGroup>().size *= objectSizeMultiplier;
+                                }
+                            }
+                            
+                        }
+                        
+                        
+                    }
+                    parent.transform.rotation = Quaternion.Euler(new Vector3(90, 0, 0));
+
+                    
+                }
             }
         }
-
-
     }
 
     public class ImportConfig
     {
         public Dictionary<string, Dictionary<string, Dictionary<string, TexInfo>>> Materials { get; set; }
-        public dynamic Instances { get; set; }
+        public Dictionary<string, InstanceInfo[]> Instances { get; set; }
         public string MeshName { get; set; }
         public string UnrealInteropPath { get; set; }
         public Dictionary<string, string> Parts { get; set; }
 
+        public Dictionary<string, Dictionary<string, List<string>>> LodGroups { get; set; }
     }
     public class TexInfo
     {
         public string Hash { get; set; }
         public string SRGB { get; set; }
     }
+
+    public class InstanceInfo
+    {
+        public float[] Translation { get; set; }
+        public float[] Rotation { get; set; }
+        public float Scale { get; set; }
+        public Vector3 vec3Translation()
+        {
+            return new Vector3(Translation[0], Translation[1], Translation[2]);
+        }
+        public Quaternion quatRotation()
+        {
+            return new Quaternion(Rotation[0], Rotation[1], Rotation[2], Rotation[3]);
+        }
+        public float floatScale()
+        {
+            return Scale;
+        }
+    }
+
+    
 }
 

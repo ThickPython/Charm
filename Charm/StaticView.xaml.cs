@@ -53,7 +53,6 @@ public partial class StaticView : UserControl
 
         //get the lod type
         ELOD lodLevel = ConfigHandler.GetUnityLodEnabled() == true ? ELOD.All : ELOD.MostDetail;
-
         List<Part> parts = container.Load(lodLevel);
 
         
@@ -71,7 +70,7 @@ public partial class StaticView : UserControl
             }
             if(ConfigHandler.GetUnityInteropEnabled())
             {
-                AutomatedImporter.SaveInteropUnityFile(savePath, ConfigHandler.GetUnityInteropPath(), meshName, AutomatedImporter.EImportType.Static, ConfigHandler.GetOutputTextureFormat());
+                AutomatedImporter.SaveInteropUnityFile(savePath, ConfigHandler.GetUnityInteropPath(), meshName, ConfigHandler.GetUnityLodEnabled(), AutomatedImporter.EImportType.Static, ConfigHandler.GetOutputTextureFormat());
             }
 
             if(source2Models)

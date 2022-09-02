@@ -87,7 +87,7 @@ public partial class UnityConfigView : UserControl
 
     private void UnityLod_OnClick(object sender, RoutedEventArgs e)
     {
-        ConfigHandler.SetUnityLodEnabled(!ConfigHandler.GetUnityInteropEnabled() && ConfigHandler.GetUnityInteropEnabled());
+        ConfigHandler.SetUnityLodEnabled(!ConfigHandler.GetUnityLodEnabled());
         PopulateConfigPanel();
     }
 

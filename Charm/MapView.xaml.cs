@@ -105,7 +105,7 @@ public partial class MapView : UserControl
 
         if(ConfigHandler.GetUnityInteropEnabled())
         {
-            AutomatedImporter.SaveInteropUnityFile(savePath, ConfigHandler.GetUnityInteropPath(), meshName, AutomatedImporter.EImportType.Map, ConfigHandler.GetOutputTextureFormat(), ConfigHandler.GetSingleFolderMapsEnabled());
+            AutomatedImporter.SaveInteropUnityFile(savePath, ConfigHandler.GetUnityInteropPath(), meshName, ConfigHandler.GetUnityLodEnabled(), AutomatedImporter.EImportType.Map, ConfigHandler.GetOutputTextureFormat(), ConfigHandler.GetSingleFolderMapsEnabled());
         }
 
         if (ConfigHandler.GetBlenderInteropEnabled())
