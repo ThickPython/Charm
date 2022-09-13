@@ -60,7 +60,7 @@ public partial class StaticView : UserControl
         Directory.CreateDirectory(savePath);
         if (exportType == EExportTypeFlag.Full)
         {
-            container.SaveMaterialsFromParts(savePath, parts, ConfigHandler.GetUnrealInteropEnabled());
+            container.SaveMaterialsFromParts(savePath, parts, ConfigHandler.GetUnrealInteropEnabled() || ConfigHandler.GetUnityInteropEnabled());
             fbxHandler.InfoHandler.SetMeshName(meshName);
             if (ConfigHandler.GetUnrealInteropEnabled())
             {
@@ -70,7 +70,7 @@ public partial class StaticView : UserControl
             }
             if(ConfigHandler.GetUnityInteropEnabled())
             {
-                AutomatedImporter.SaveInteropUnityFile(savePath, ConfigHandler.GetUnityInteropPath(), meshName, ConfigHandler.GetUnityLodEnabled(), AutomatedImporter.EImportType.Static, ConfigHandler.GetOutputTextureFormat());
+                AutomatedImporter.SaveInteropUnityFile(savePath, ConfigHandler.GetUnityInteropPath(), meshName, ConfigHandler.GetUnityLodEnabled(), ConfigHandler.GetUnityRPType(),  AutomatedImporter.EImportType.Static, ConfigHandler.GetOutputTextureFormat());
             }
 
             if(source2Models)

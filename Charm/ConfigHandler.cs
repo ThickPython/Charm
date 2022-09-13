@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Forms;
+using Field.Models;
 using Field.Textures;
 using MessageBox = System.Windows.Forms.MessageBox;
 
@@ -449,6 +450,67 @@ public class ConfigHandler
             return false;
         }
         return _config.AppSettings.Settings["unityLodEnabled"].Value == "True";
+    }
+
+    #endregion
+
+    #region unity pipeline settings
+    public static void SetUnityHDRPEnabled(bool bUnityHDRPEnabled)
+    {
+        if (_config.AppSettings.Settings["unityHDRPEnabled"] == null)
+        {
+            _config.AppSettings.Settings.Add("unityHDRPEnabled", bUnityHDRPEnabled.ToString());
+        }
+        else
+        {
+            _config.AppSettings.Settings["unityHDRPEnabled"].Value = bUnityHDRPEnabled.ToString();
+        }
+
+        Save();
+    }
+
+    public static bool GetUnityHDRPEnabled()
+    {
+        if (_config.AppSettings.Settings["unityHDRPEnabled"] == null)
+        {
+            return true; //default to true
+        }
+        return _config.AppSettings.Settings["unityHDRPEnabled"].Value == "True";
+    }
+
+    public static void SetUnityBuiltinEnabled(bool bUnityBuiltinEnabled)
+    {
+        if (_config.AppSettings.Settings["unityBuiltinEnabled"] == null)
+        {
+            _config.AppSettings.Settings.Add("unityBuiltinEnabled", bUnityBuiltinEnabled.ToString());
+        }
+        else
+        {
+            _config.AppSettings.Settings["unityBuiltinEnabled"].Value = bUnityBuiltinEnabled.ToString();
+        }
+
+        Save();
+    }
+
+    public static bool GetUnityBuiltinEnabled()
+    {
+        if (_config.AppSettings.Settings["unityBuiltinEnabled"] == null)
+        {
+            return false; 
+        }
+        return _config.AppSettings.Settings["unityBuiltinEnabled"].Value == "True";
+    }
+
+    public static AutomatedImporter.ERPType GetUnityRPType()
+    {
+        if(GetUnityHDRPEnabled())
+        {
+            return AutomatedImporter.ERPType.HDRP;
+        } else if(GetUnityBuiltinEnabled())
+        {
+            return AutomatedImporter.ERPType.Builtin;
+        }
+        return AutomatedImporter.ERPType.HDRP;
     }
 
     #endregion

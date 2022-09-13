@@ -70,6 +70,9 @@
       <None Update="UnityImportThings\charm_to_unity.txt">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="UnityImportThings\DefaultBuiltin.txt">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
       <None Update="UnityImportThings\DefaultHLSL.hlsl">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>

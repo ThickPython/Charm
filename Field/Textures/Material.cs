@@ -3,7 +3,9 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Field.Entities;
 using Field.General;
+
 using File = System.IO.File;
+
 
 namespace Field.Textures;
 
@@ -21,7 +23,7 @@ public class Material : Tag
     {
         Header = ReadHeader<D2Class_AA6D8080>();
     }
-
+    
     public void SaveAllTextures(string saveDirectory)
     {
         foreach (var e in Header.VSTextures)
@@ -144,6 +146,8 @@ public class Material : Tag
             string usf = new UsfConverter().HlslToUsf(this, hlsl, false);
             string vfx = new VfxConverter().HlslToVfx(this, hlsl, false);
             
+            
+
             Directory.CreateDirectory($"{saveDirectory}/Source2");
             Directory.CreateDirectory($"{saveDirectory}/Source2/materials");
             StringBuilder vmat = new StringBuilder();
@@ -160,13 +164,34 @@ public class Material : Tag
                 }
             }
 
+
+            //do both and i'll fix it later
+
+            //BUILTIN destiny things
+            Directory.CreateDirectory($"{saveDirectory}/../UnityBuiltinShaders");
+            Directory.CreateDirectory($"{saveDirectory}/../UnityHDRPShaders");
+            string builtinShader = new DestinyToUnityBuiltin().HlslToBuiltinShader(this, hlsl, false);
+            if(builtinShader != String.Empty)
+            {
+                try
+                {
+                    File.WriteAllText($"{saveDirectory}/../UnityBuiltinShaders/{Hash}_builtin.shader", builtinShader);
+                }
+                catch (IOException)
+                {
+
+                }
+            }
+
+            
+            //HDRP destiny things
             //Destiny things
             string dHlsl = new DestinyToUnityHLSL().Hlsl2UnityHlsl(this, hlsl, false);
             if (dHlsl != String.Empty)
             {
                 try
                 {
-                    File.WriteAllText($"{saveDirectory}/PS_{Hash}.hlsl", dHlsl);
+                    File.WriteAllText($"{saveDirectory}/../UnityHDRPShaders/PS_{Hash}.hlsl", dHlsl);
                 }
                 catch (IOException)  // threading error
                 {

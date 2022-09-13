@@ -1,0 +1,72 @@
+﻿Shader "Custom/replaceWithTitle"
+{
+    Properties
+    {
+        //replaceWithProperties
+    }
+    SubShader
+    {
+        Tags { "Queue" = "Transparent" "RenderType"="Transparent" }
+        LOD 200
+
+        Blend SrcAlpha OneMinusSrcAlpha
+
+        CGPROGRAM
+        // Physically based Standard lighting model, and enable shadows on all light types
+        #pragma surface surf Standard fullforwardshadows
+
+        // Use shader model 3.0 target, to get nicer looking lighting
+        #pragma target 3.0
+        
+
+        // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
+        // See https://docs.unity3d.com/Manual/GPUInstancing.html for more information about instancing.
+        // #pragma instancing_options assumeuniformscaling
+        UNITY_INSTANCING_BUFFER_START(Props)
+        // put more per-instance properties here
+        UNITY_INSTANCING_BUFFER_END(Props)
+
+        struct Input
+        {
+            float2 uv_t0;
+        };
+
+        //replaceWithVars
+
+        #define cmp -
+        void surf (Input IN, inout SurfaceOutputStandard o)
+        {
+            float4 o0, o1, o2;
+            v0.xyzw = v0.xyzw * IN.uv_t0.xyxy;
+            v1.xyzw = v1.xyzw * IN.uv_t0.xyxy;
+            v2.xyzw = v2.xyzw * IN.uv_t0.xyxy;
+            v3.xyzw = v3.xyzw * IN.uv_t0.xyxy;
+            v4.xyz = v4.xyz * IN.uv_t0.xyx;
+            v5.xyzw = v5.xyzw * IN.uv_t0.xyxy;
+            v6.x = v6.x * IN.uv_t0.x;
+            //replaceWithCalculations
+
+
+            //Base and alpha
+            o.Albedo = o0.xyz;
+            o.Alpha = o0.w;
+
+            // Normal
+            float3 biased_normal = o1.xyz - float3(0.5, 0.5, 0.5);
+            float normal_length = length(biased_normal);
+            float3 normal_in_world_space = biased_normal / normal_length;
+            o.Normal = float3(1 - normal_in_world_space.x, normal_in_world_space.y, normal_in_world_space.z);
+
+            //Smoothness (unity doesn't do roughness)
+            float smoothness = saturate(8 * (normal_length - 0.375));
+            o.Smoothness = 1 - smoothness;
+
+            ///RT2
+            o.Metallic = o2.x;
+            o.Emission = (o2.y - 0.5) * 2 * 5 * o0.xyz; // the *5 is a scale to make it look good
+            o.Occlusion = o2.y * 2; // Texture AO
+        }
+        ENDCG
+    }
+    FallBack "Diffuse"
+}

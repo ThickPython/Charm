@@ -36,6 +36,11 @@ public partial class UnityConfigView : UserControl
         cui.ChangeButton.Click += UnityEnabled_OnClick;
         UnityConfigPanel.Children.Add(cui);
 
+        TextBlock lbl1 = new TextBlock();
+        lbl1.Text = "USE PNG FOR THE TEXTURE TYPE UNITY GETS MAD AT DDS";
+        lbl1.FontSize = 15;
+        UnityConfigPanel.Children.Add(lbl1);
+
         // Assets path
         ConfigSettingControl cpp = new ConfigSettingControl();
         cpp.SettingName = "Unity asset import path";
@@ -49,6 +54,21 @@ public partial class UnityConfigView : UserControl
         lbl2.FontSize = 15;
         UnityConfigPanel.Children.Add(lbl2);
 
+        //render pipeline things
+        ConfigSettingControl chdrp = new ConfigSettingControl();
+        chdrp.SettingName = "Export HDRP shaders";
+        bool bhdrp = ConfigHandler.GetUnityHDRPEnabled();
+        chdrp.SettingValue = bhdrp.ToString();
+        chdrp.ChangeButton.Click += UnityHDRP_OnClick;
+        UnityConfigPanel.Children.Add(chdrp);
+
+        ConfigSettingControl cBuiltin = new ConfigSettingControl();
+        cBuiltin.SettingName = "Export Builtin shaders";
+        bool bBuiltin = ConfigHandler.GetUnityBuiltinEnabled();
+        cBuiltin.SettingValue = bBuiltin.ToString();
+        cBuiltin.ChangeButton.Click += UnityBI_OnClick;
+        UnityConfigPanel.Children.Add(cBuiltin);
+
         //enable lods
         ConfigSettingControl cul = new ConfigSettingControl();
         cul.SettingName = "Enable Unity Lods";
@@ -56,6 +76,8 @@ public partial class UnityConfigView : UserControl
         cul.SettingValue = bval2.ToString();
         cul.ChangeButton.Click += UnityLod_OnClick;
         UnityConfigPanel.Children.Add(cul);
+
+
 
     }
 
@@ -101,6 +123,20 @@ public partial class UnityConfigView : UserControl
     private void UnityEnabled_OnClick(object sender, RoutedEventArgs e)
     {
         ConfigHandler.SetUnityInteropEnabled(!ConfigHandler.GetUnityInteropEnabled());
+        PopulateConfigPanel();
+    }
+
+    private void UnityHDRP_OnClick(object sender, RoutedEventArgs e)
+    {
+        ConfigHandler.SetUnityHDRPEnabled(!ConfigHandler.GetUnityHDRPEnabled());
+        ConfigHandler.SetUnityBuiltinEnabled(!ConfigHandler.GetUnityBuiltinEnabled()); //1 must be active always, at least 1 and at most 1
+        PopulateConfigPanel();
+    }
+
+    private void UnityBI_OnClick(object sender, RoutedEventArgs e)
+    {
+        ConfigHandler.SetUnityBuiltinEnabled(!ConfigHandler.GetUnityBuiltinEnabled());
+        ConfigHandler.SetUnityHDRPEnabled(!ConfigHandler.GetUnityHDRPEnabled());
         PopulateConfigPanel();
     }
 }

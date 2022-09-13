@@ -105,7 +105,7 @@ public partial class MapView : UserControl
 
         if(ConfigHandler.GetUnityInteropEnabled())
         {
-            AutomatedImporter.SaveInteropUnityFile(savePath, ConfigHandler.GetUnityInteropPath(), meshName, ConfigHandler.GetUnityLodEnabled(), AutomatedImporter.EImportType.Map, ConfigHandler.GetOutputTextureFormat(), ConfigHandler.GetSingleFolderMapsEnabled());
+            AutomatedImporter.SaveInteropUnityFile(savePath, ConfigHandler.GetUnityInteropPath(), meshName, ConfigHandler.GetUnityLodEnabled(), ConfigHandler.GetUnityRPType(), AutomatedImporter.EImportType.Map, ConfigHandler.GetOutputTextureFormat(), ConfigHandler.GetSingleFolderMapsEnabled());
         }
 
         if (ConfigHandler.GetBlenderInteropEnabled())
@@ -210,7 +210,7 @@ public partial class MapView : UserControl
                     }
                     else if (exportTypeFlag == EExportTypeFlag.Full || exportTypeFlag == EExportTypeFlag.Minimal) //No terrain on a minimal rip makes sense right?
                     {
-                        staticMapResource.StaticMapParent.Header.StaticMap.LoadIntoFbxScene(fbxHandler, savePath, ConfigHandler.GetUnrealInteropEnabled());
+                        staticMapResource.StaticMapParent.Header.StaticMap.LoadIntoFbxScene(fbxHandler, savePath, ConfigHandler.GetUnrealInteropEnabled() || ConfigHandler.GetUnityInteropEnabled());
                     }
                 }
                 else if(entry is D2Class_85988080 dynamicResource)

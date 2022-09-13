@@ -11,6 +11,12 @@ public class AutomatedImporter
         Entity,
         Map
     }
+
+    public enum ERPType //enum render pipeline type not erotic roleplay type
+    {
+        Builtin,
+        HDRP
+    }
     
     public static void SaveInteropUnrealPythonFile(string saveDirectory, string meshName, EImportType importType, ETextureFormat textureFormat, bool bSingleFolder = true)
     {
@@ -43,14 +49,14 @@ public class AutomatedImporter
         File.WriteAllText($"{saveDirectory}/{meshName}_import_to_ue5.py", textExtensions);
     }
 
-    public static void SaveInteropUnityFile(string saveDirectory, string unityDirectory, string meshName, bool enableLods, EImportType importType, ETextureFormat textureFormat, bool bSingleFolder = true)
+    public static void SaveInteropUnityFile(string saveDirectory, string unityDirectory, string meshName, bool enableLods, ERPType rpType, EImportType importType, ETextureFormat textureFormat, bool bSingleFolder = true)
     {
         //Copy and rename file and class (lul unity no script support)
         File.Copy("UnityImportThings/charm_to_unity.txt", $"{unityDirectory}/{meshName}_charm_to_unity.cs", true);
 
         //Change class name
         string text = File.ReadAllText($"{unityDirectory}/{meshName}_charm_to_unity.cs");
-        text = text.Replace("CharmToUnityWindow", $"CharmToUnityWindow_{meshName}");
+        text = text.Replace("CharmToUnityWindowClass", $"CharmToUnityWindow_{meshName}");
 
         text = text.Replace("replaceTextureTypeExtentionPleaseThanks", ".dds");
         switch (textureFormat)
@@ -74,6 +80,17 @@ public class AutomatedImporter
 
         //set lods
         if(enableLods) { text = text.Replace("bool createLodGroups = false;", "bool createLodGroups = true;");  }
+
+        //set shadertype
+        if(rpType == ERPType.Builtin)
+        {
+            Directory.Delete(saveDirectory + "/UnityHDRPShaders", true);
+            Directory.Move(saveDirectory + "/UnityBuiltinShaders", saveDirectory + "/UnityShaders");
+        } else if(rpType == ERPType.HDRP)
+        {
+            Directory.Delete(saveDirectory + "/UnityBuiltinShaders", true);
+            Directory.Move(saveDirectory + "/UnityHDRPShaders", saveDirectory + "/UnityShaders");
+        }
 
         File.WriteAllText($"{unityDirectory}/{meshName}_charm_to_unity.cs", text);
 

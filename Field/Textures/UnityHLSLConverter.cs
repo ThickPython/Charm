@@ -47,7 +47,7 @@ public class DestinyToUnityHLSL
         }
 
         WriteFooter(bIsVertexShader);
-        Console.WriteLine("Did it");
+        //Console.WriteLine("Did it");
         return unityHLSL.ToString();
     }
 

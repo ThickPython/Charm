@@ -35,8 +35,9 @@ public class InfoConfigHandler
         if (!lods.Keys.Contains(meshGroup))
         {
             lods[meshGroup] = new Dictionary<string, List<string>>();
+            lods[meshGroup][lodLevel.ToString()] = new List<string>();
         }
-        if (!lods[meshGroup].Keys.Contains(lodLevel.ToString()))
+        else if (!lods[meshGroup].Keys.Contains(lodLevel.ToString())) //it looks weird but it fixes a stupid bug trust me
         {
             lods[meshGroup][lodLevel.ToString()] = new List<string>();
         }
