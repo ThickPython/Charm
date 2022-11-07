@@ -168,14 +168,13 @@ public class Material : Tag
             //do both and i'll fix it later
 
             //BUILTIN destiny things
-            Directory.CreateDirectory($"{saveDirectory}/../UnityBuiltinShaders");
-            Directory.CreateDirectory($"{saveDirectory}/../UnityHDRPShaders");
+            Directory.CreateDirectory($"{saveDirectory}/../UnityShaders");
             string builtinShader = new DestinyToUnityBuiltin().HlslToBuiltinShader(this, hlsl, false);
             if(builtinShader != String.Empty)
             {
                 try
                 {
-                    File.WriteAllText($"{saveDirectory}/../UnityBuiltinShaders/{Hash}_builtin.shader", builtinShader);
+                    File.WriteAllText($"{saveDirectory}/../UnityShaders/{Hash}_builtin.shader", builtinShader);
                 }
                 catch (IOException)
                 {
@@ -191,7 +190,7 @@ public class Material : Tag
             {
                 try
                 {
-                    File.WriteAllText($"{saveDirectory}/../UnityHDRPShaders/PS_{Hash}.hlsl", dHlsl);
+                    File.WriteAllText($"{saveDirectory}/../UnityShaders/PS_{Hash}.hlsl", dHlsl);
                 }
                 catch (IOException)  // threading error
                 {

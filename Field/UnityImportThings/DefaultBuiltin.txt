@@ -6,10 +6,10 @@
     }
     SubShader
     {
-        Tags { "Queue" = "Transparent" "RenderType"="Transparent" }
+        Tags { "RenderType"="Opaque" }
+        //replace if transparent
         LOD 200
 
-        Blend SrcAlpha OneMinusSrcAlpha
 
         CGPROGRAM
         // Physically based Standard lighting model, and enable shadows on all light types

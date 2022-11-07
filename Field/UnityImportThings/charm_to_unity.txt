@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 
 namespace CharmToUnityWindow
 {
-    public class CharmToUnityWindowClass : EditorWindow
+    public class CharmToUnityWindow : EditorWindow
     {
 
         //settings
@@ -30,6 +30,7 @@ namespace CharmToUnityWindow
 
         //create lod groups
         bool createLodGroups = false;
+        bool olderUnity = false;
         float objectSizeMultiplier = 5;
 
         //set render pipline type
@@ -60,7 +61,7 @@ namespace CharmToUnityWindow
         [MenuItem("Window/CharmToUnity/CharmToUnityWindow")]
         public static void ShowWindw()
         {
-            EditorWindow.GetWindow(typeof(CharmToUnityWindowClass));
+            EditorWindow.GetWindow(typeof(CharmToUnityWindow));
         }
 
         private void OnGUI()
@@ -86,6 +87,7 @@ namespace CharmToUnityWindow
             setAsStatic = EditorGUILayout.Toggle("Set imports as static", setAsStatic);
             deleteAfterMakingPrefabs = EditorGUILayout.Toggle("Delete after import", deleteAfterMakingPrefabs);
             createLodGroups = EditorGUILayout.Toggle("Create lod groups", createLodGroups);
+            olderUnity = EditorGUILayout.Toggle("LOD change for old", olderUnity);
             objectSizeMultiplier = EditorGUILayout.FloatField("Set lod size (please reinstantiate)", objectSizeMultiplier);
             eRPType = (ERPType)EditorGUILayout.EnumPopup("Set Render Pipeline", eRPType);
             //createBackupShadergraph = EditorGUILayout.Toggle("Create backup Shadergraph", createBackupShadergraph);
@@ -539,7 +541,7 @@ namespace CharmToUnityWindow
                     {
                         renderers[rendererIndex] = parent.transform.Find(lodGroupData[lodKey][rendererIndex]).GetComponent<MeshRenderer>();
                     }
-                    lods[i] = new LOD(1.0F / (5 + float.Parse(lodKey)), renderers);
+                    lods[i] = new LOD(1.0F / (2 + float.Parse(lodKey)), renderers);
                 }
                 lodGroup.SetLODs(lods);
             }
@@ -613,7 +615,19 @@ namespace CharmToUnityWindow
                                 //Lod stuff if doing lod stuff
                                 if (createLodGroups)
                                 {
-                                    Instantiated.GetComponent<LODGroup>().size *= objectSizeMultiplier;
+                                    if(olderUnity)
+                                    {
+                                        LODGroup activeLG = Instantiated.GetComponent<LODGroup>();
+                                        LOD[] lods = activeLG.GetLODs();
+                                        for(int i = 0; i < lods.Length; i++)
+                                        {
+                                            lods[i].screenRelativeTransitionHeight = 1.0F / (objectSizeMultiplier + i);
+                                        }
+                                        activeLG.SetLODs(lods);
+                                    } else
+                                    {
+                                        Instantiated.GetComponent<LODGroup>().size *= objectSizeMultiplier;
+                                    }
                                 }
                             }
 

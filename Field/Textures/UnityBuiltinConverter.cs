@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Field.Models;
 using System.Security.AccessControl;
+using NAudio.Codecs;
 
 namespace Field.Textures
 {
@@ -65,6 +66,11 @@ namespace Field.Textures
             unityBuiltin.Replace("//replaceWithProperties", properties.ToString());
             unityBuiltin.Replace("//replaceWithVars", vars.ToString());
             unityBuiltin.Replace("//replaceWithCalculations", calculations.ToString());
+
+            //if transparent
+            //unityBuiltin.Replace("Tags { \"RenderType\"=\"Opaque\" }", "");
+            //unityBuiltin.Replace("//replace if transparent", "Tags { \"Queue\" = \"Transparent\" \"RenderType\"=\"Transparent\" } \n Blend SrcAlpha OneMinusSrcAlpha");
+
 
             //Console.WriteLine("Did it");
             return unityBuiltin.ToString();

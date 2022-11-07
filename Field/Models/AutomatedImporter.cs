@@ -2,6 +2,7 @@
 namespace Field.Models;
 using System.Configuration;
 using System.IO;
+using System.Linq;
 
 public class AutomatedImporter
 {
@@ -56,7 +57,7 @@ public class AutomatedImporter
 
         //Change class name
         string text = File.ReadAllText($"{unityDirectory}/{meshName}_charm_to_unity.cs");
-        text = text.Replace("CharmToUnityWindowClass", $"CharmToUnityWindow_{meshName}");
+        text = text.Replace("CharmToUnityWindow", $"CharmToUnityWindow_{meshName}");
 
         text = text.Replace("replaceTextureTypeExtentionPleaseThanks", ".dds");
         switch (textureFormat)
@@ -81,15 +82,24 @@ public class AutomatedImporter
         //set lods
         if(enableLods) { text = text.Replace("bool createLodGroups = false;", "bool createLodGroups = true;");  }
 
+
         //set shadertype
+        //Move all shaders to the main unityshaders folder
+        /*
+        Directory.CreateDirectory(saveDirectory + "/UnityShaders");
         if(rpType == ERPType.Builtin)
         {
             Directory.Delete(saveDirectory + "/UnityHDRPShaders", true);
-            Directory.Move(saveDirectory + "/UnityBuiltinShaders", saveDirectory + "/UnityShaders");
+            MoveContents(saveDirectory + "/UnityBuiltinShaders", saveDirectory + "/UnityShaders");
+            text = text.Replace("public ERPType eRPType = ERPType.HDRP", "public ERPType eRPType = ERPType.Builtin");
         } else if(rpType == ERPType.HDRP)
         {
             Directory.Delete(saveDirectory + "/UnityBuiltinShaders", true);
-            Directory.Move(saveDirectory + "/UnityHDRPShaders", saveDirectory + "/UnityShaders");
+            MoveContents(saveDirectory + "/UnityHDRPShaders", saveDirectory + "/UnityShaders");
+        }*/
+        if (rpType == ERPType.Builtin)
+        {
+            text = text.Replace("public ERPType eRPType = ERPType.HDRP", "public ERPType eRPType = ERPType.Builtin");
         }
 
         File.WriteAllText($"{unityDirectory}/{meshName}_charm_to_unity.cs", text);
@@ -99,6 +109,16 @@ public class AutomatedImporter
         File.Copy("UnityImportThings/DefaultHLSL.hlsl", $"{unityDirectory}/DefaultHLSL.hlsl", true);
         File.Copy("UnityImportThings/SHADERTEMPLATENEW.txt", $"{unityDirectory}/SHADERTEMPLATENEW.txt", true);
         File.Copy("UnityImportThings/BlankEmissionTemplate.mat", $"{unityDirectory}/BlankEmissionTemplate.mat", true);
+    }
+
+    public static void MoveContents(string directoryFrom, string directoryTo)
+    {
+        string[] items = Directory.GetFiles(directoryFrom);
+        foreach(string itemPath in items)
+        {
+            Console.WriteLine(directoryTo + "/" + itemPath.Split("\\").Last());
+            File.Move(itemPath, directoryTo + "/" + itemPath.Split("\\").Last(), true);
+        }
     }
 
     public static void SaveInteropBlenderPythonFile(string saveDirectory, string meshName, EImportType importType, ETextureFormat textureFormat, bool bSingleFolder = true)
